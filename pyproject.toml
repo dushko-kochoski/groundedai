@@ -14,6 +14,7 @@ dependencies = [
     "fastapi>=0.115,<1",
     "pgvector>=0.3,<1",
     "pydantic-settings>=2.7,<3",
+    "python-multipart>=0.0.20,<1",
     "sqlalchemy[asyncio]>=2.0.36,<3",
     "uvicorn[standard]>=0.34,<1",
 ]
@@ -34,6 +35,9 @@ include = ["app*"]
 addopts = "-q"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: requires TEST_DATABASE_URL pointing to migrated PostgreSQL with pgvector",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -47,4 +51,3 @@ python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 files = ["app", "tests"]
-
