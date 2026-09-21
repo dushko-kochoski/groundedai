@@ -35,7 +35,7 @@ async def retrieval_postgres_client(
         max_upload_bytes=4096,
         chunk_target_chars=200,
         chunk_overlap_chars=20,
-        embedding_dimension=256,
+        embedding_dimension=1536,
         retrieval_top_k=5,
         retrieval_max_top_k=10,
         retrieval_min_score=0.15,
@@ -82,7 +82,7 @@ async def test_exact_pgvector_retrieval_ranking_thresholds_and_ready_filter(
     refund_id = uuid.UUID(refund_upload.json()["id"])
     backup_id = uuid.UUID(backup_upload.json()["id"])
 
-    provider = DeterministicEmbeddingProvider(256)
+    provider = DeterministicEmbeddingProvider(1536)
     processing_document = Document(
         filename="retrieval-integration-processing.txt",
         content_type="text/plain",
@@ -101,11 +101,43 @@ async def test_exact_pgvector_retrieval_ranking_thresholds_and_ready_filter(
                 text=query,
                 char_count=len(query),
                 embedding=await provider.embed_text(query),
+                embedding_provider=provider.name,
+                embedding_model=provider.model,
+                embedding_dimension=provider.dimension,
+                embedding_version=provider.version,
                 metadata_={},
             )
         )
         await session.commit()
     processing_id = processing_document.id
+
+    incompatible_document = Document(
+        filename="retrieval-integration-incompatible.txt",
+        content_type="text/plain",
+        checksum="e" * 64,
+        status=DocumentStatus.READY,
+        size_bytes=len(query),
+        metadata_={},
+    )
+    async with session_factory() as session:
+        session.add(incompatible_document)
+        await session.flush()
+        session.add(
+            DocumentChunk(
+                document_id=incompatible_document.id,
+                chunk_index=0,
+                text=query,
+                char_count=len(query),
+                embedding=await provider.embed_text(query),
+                embedding_provider="different-provider",
+                embedding_model="different-model",
+                embedding_dimension=provider.dimension,
+                embedding_version="1",
+                metadata_={},
+            )
+        )
+        await session.commit()
+    incompatible_id = incompatible_document.id
 
     search = await client.post(
         "/api/v1/retrieval/search",
@@ -116,6 +148,7 @@ async def test_exact_pgvector_retrieval_ranking_thresholds_and_ready_filter(
     results = body["results"]
     assert results[0]["document_id"] == str(refund_id)
     assert str(processing_id) not in {result["document_id"] for result in results}
+    assert str(incompatible_id) not in {result["document_id"] for result in results}
     assert {result["document_id"] for result in results} == {str(refund_id), str(backup_id)}
     assert [result["score"] for result in results] == sorted(
         [result["score"] for result in results], reverse=True
@@ -157,7 +190,7 @@ async def test_exact_pgvector_retrieval_ranking_thresholds_and_ready_filter(
             )
         ).all()
     assert len(vector_rows) == 2
-    assert all(row[1] == 256 for row in vector_rows)
+    assert all(row[1] == 1536 for row in vector_rows)
 
     assert (await client.delete(f"/api/v1/documents/{refund_id}")).status_code == 200
     assert (await client.delete(f"/api/v1/documents/{backup_id}")).status_code == 200

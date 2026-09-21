@@ -17,7 +17,14 @@ logger = logging.getLogger(__name__)
 
 class RetrievalRepositoryProtocol(Protocol):
     async def search(
-        self, *, query_embedding: list[float], top_k: int
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int,
+        embedding_provider: str,
+        embedding_model: str,
+        embedding_dimension: int,
+        embedding_version: str,
     ) -> list[RetrievalCandidate]: ...
 
 
@@ -79,6 +86,10 @@ class RetrievalService:
         candidates = await self.repository.search(
             query_embedding=query_embedding,
             top_k=effective_top_k,
+            embedding_provider=self.embeddings.name,
+            embedding_model=self.embeddings.model,
+            embedding_dimension=self.embeddings.dimension,
+            embedding_version=self.embeddings.version,
         )
         search_ms = self._elapsed_ms(search_started)
 
@@ -94,6 +105,9 @@ class RetrievalService:
         returned_chars = sum(len(result.text) for result in results)
         diagnostics = RetrievalDiagnostics(
             provider=self.embeddings.name,
+            model=self.embeddings.model,
+            dimension=self.embeddings.dimension,
+            version=self.embeddings.version,
             requested_top_k=effective_top_k,
             database_candidates_considered=len(candidates),
             returned_count=len(results),

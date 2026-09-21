@@ -14,9 +14,20 @@ class FakeRetrievalRepository:
         self.last_top_k: int | None = None
 
     async def search(
-        self, *, query_embedding: list[float], top_k: int
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int,
+        embedding_provider: str,
+        embedding_model: str,
+        embedding_dimension: int,
+        embedding_version: str,
     ) -> list[RetrievalCandidate]:
-        assert len(query_embedding) == 256
+        assert len(query_embedding) == 1536
+        assert embedding_provider == "deterministic-feature-hashing"
+        assert embedding_model == "feature-hashing-v1"
+        assert embedding_dimension == 1536
+        assert embedding_version == "1"
         self.last_top_k = top_k
         return self.candidates[:top_k]
 
@@ -41,7 +52,7 @@ def service(
 ) -> RetrievalService:
     return RetrievalService(
         repository=repository,
-        embeddings=DeterministicEmbeddingProvider(256),
+        embeddings=DeterministicEmbeddingProvider(1536),
         default_top_k=5,
         max_top_k=10,
         default_min_score=0.15,
@@ -98,6 +109,7 @@ async def test_defaults_normalization_ordering_and_metadata() -> None:
     assert response.results[0].section == "Policy"
     assert response.diagnostics.database_candidates_considered == 3
     assert response.diagnostics.provider == "deterministic-feature-hashing"
+    assert response.diagnostics.dimension == 1536
 
 
 async def test_top_k_and_min_score_are_validated() -> None:
@@ -146,4 +158,3 @@ async def test_retrieval_results_are_deterministic() -> None:
     second = await retrieval.retrieve("repeatable query")
 
     assert first.results == second.results
-

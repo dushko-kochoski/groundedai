@@ -6,15 +6,23 @@ from fastapi import UploadFile
 
 from app.core.exceptions import ApplicationError
 
-SUPPORTED_EXTENSIONS = frozenset({".txt", ".md", ".markdown"})
-SUPPORTED_CONTENT_TYPES = frozenset(
-    {
-        "application/octet-stream",
-        "application/x-markdown",
-        "text/markdown",
-        "text/plain",
-    }
-)
+SUPPORTED_CONTENT_TYPES = {
+    ".txt": frozenset({"application/octet-stream", "text/plain"}),
+    ".md": frozenset(
+        {"application/octet-stream", "application/x-markdown", "text/markdown", "text/plain"}
+    ),
+    ".markdown": frozenset(
+        {"application/octet-stream", "application/x-markdown", "text/markdown", "text/plain"}
+    ),
+    ".pdf": frozenset({"application/octet-stream", "application/pdf"}),
+    ".docx": frozenset(
+        {
+            "application/octet-stream",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        }
+    ),
+}
+SUPPORTED_EXTENSIONS = frozenset(SUPPORTED_CONTENT_TYPES)
 READ_BLOCK_BYTES = 64 * 1024
 
 
@@ -45,20 +53,35 @@ def validate_upload_metadata(filename: str | None, content_type: str | None) -> 
         raise ApplicationError(
             status_code=415,
             code="unsupported_file_type",
-            message="Only .txt, .md, and .markdown files are supported.",
+            message="Only .txt, .md, .markdown, .pdf, and .docx files are supported.",
             details={"extension": extension or None},
         )
 
     normalized_content_type = (content_type or "application/octet-stream").lower()
     normalized_content_type = normalized_content_type.split(";", maxsplit=1)[0].strip()
-    if normalized_content_type not in SUPPORTED_CONTENT_TYPES:
+    if normalized_content_type not in SUPPORTED_CONTENT_TYPES[extension]:
         raise ApplicationError(
             status_code=415,
             code="unsupported_content_type",
-            message="The uploaded content type is not supported for a text document.",
+            message="The uploaded content type does not match the supported document format.",
             details={"content_type": normalized_content_type},
         )
     return ValidatedUpload(normalized_name, extension, normalized_content_type)
+
+
+def validate_file_signature(extension: str, content: bytes) -> None:
+    if extension == ".pdf" and not content.startswith(b"%PDF-"):
+        raise ApplicationError(
+            status_code=400,
+            code="invalid_pdf",
+            message="The uploaded file does not have a valid PDF signature.",
+        )
+    if extension == ".docx" and not content.startswith(b"PK"):
+        raise ApplicationError(
+            status_code=400,
+            code="invalid_docx",
+            message="The uploaded file does not have a valid DOCX container signature.",
+        )
 
 
 async def read_upload_bounded(upload: UploadFile, max_bytes: int) -> UploadBytes:
@@ -109,4 +132,3 @@ def decode_and_normalize_text(content: bytes) -> str:
             message="The uploaded file does not contain any usable text.",
         )
     return normalized
-

@@ -13,9 +13,10 @@ from app.providers.embeddings.base import EmbeddingProvider
 from app.repositories.documents import DocumentRecord, DocumentRepository
 from app.schemas.documents import DocumentListResponse, DocumentResponse
 from app.services.ingestion.chunking import ParagraphChunker
+from app.services.ingestion.parsers import DocumentParserRegistry, SourceUnit
 from app.services.ingestion.validation import (
-    decode_and_normalize_text,
     read_upload_bounded,
+    validate_file_signature,
     validate_upload_metadata,
 )
 from app.services.storage import LocalDocumentStorage
@@ -41,12 +42,14 @@ class DocumentService:
         storage: LocalDocumentStorage,
         chunker: ParagraphChunker,
         embeddings: EmbeddingProvider,
+        parsers: DocumentParserRegistry,
         max_upload_bytes: int,
     ) -> None:
         self.repository = repository
         self.storage = storage
         self.chunker = chunker
         self.embeddings = embeddings
+        self.parsers = parsers
         self.max_upload_bytes = max_upload_bytes
 
     async def ingest(self, upload: UploadFile) -> DocumentResponse:
@@ -57,8 +60,9 @@ class DocumentService:
         if existing is not None:
             self._raise_duplicate(existing)
 
-        text = decode_and_normalize_text(payload.content)
-        chunks = self.chunker.chunk(text)
+        validate_file_signature(metadata.extension, payload.content)
+        source_units = self.parsers.parse(metadata.extension, payload.content)
+        chunks = self._chunk_source_units(source_units)
         document_id = uuid.uuid4()
         document = Document(
             id=document_id,
@@ -67,7 +71,13 @@ class DocumentService:
             checksum=payload.checksum,
             status=DocumentStatus.PROCESSING,
             size_bytes=len(payload.content),
-            metadata_={"source_extension": metadata.extension},
+            metadata_={
+                "source_extension": metadata.extension,
+                "embedding_provider": self.embeddings.name,
+                "embedding_model": self.embeddings.model,
+                "embedding_dimension": self.embeddings.dimension,
+                "embedding_version": self.embeddings.version,
+            },
         )
         storage_key: str | None = None
 
@@ -88,18 +98,29 @@ class DocumentService:
                 payload.content,
             )
             document.storage_key = storage_key
-            vectors = await self.embeddings.embed_batch([chunk.text for chunk in chunks])
+            vectors = await self.embeddings.embed_batch([chunk[0] for chunk in chunks])
+            if len(vectors) != len(chunks):
+                raise ValueError("embedding provider returned the wrong vector count")
             self.repository.add_chunks(
                 [
                     DocumentChunk(
                         document_id=document_id,
-                        chunk_index=chunk.index,
-                        text=chunk.text,
-                        char_count=chunk.char_count,
+                        chunk_index=index,
+                        text=chunk_text,
+                        char_count=len(chunk_text),
                         embedding=vector,
-                        metadata_={},
+                        embedding_provider=self.embeddings.name,
+                        embedding_model=self.embeddings.model,
+                        embedding_dimension=self.embeddings.dimension,
+                        embedding_version=self.embeddings.version,
+                        metadata_={
+                            "page_number": source_unit.page_number,
+                            "section": source_unit.section,
+                        },
                     )
-                    for chunk, vector in zip(chunks, vectors, strict=True)
+                    for index, ((chunk_text, source_unit), vector) in enumerate(
+                        zip(chunks, vectors, strict=True)
+                    )
                 ]
             )
             document.status = DocumentStatus.READY
@@ -126,6 +147,18 @@ class DocumentService:
         if record is None:
             raise RuntimeError("persisted document could not be reloaded")
         return self._to_response(record)
+
+    def _chunk_source_units(self, units: list[SourceUnit]) -> list[tuple[str, SourceUnit]]:
+        chunks: list[tuple[str, SourceUnit]] = []
+        for unit in units:
+            chunks.extend((chunk.text, unit) for chunk in self.chunker.chunk(unit.text))
+        if not chunks:
+            raise ApplicationError(
+                status_code=400,
+                code="empty_document",
+                message="The uploaded file does not contain any usable text.",
+            )
+        return chunks
 
     async def list_documents(self, *, limit: int, offset: int) -> DocumentListResponse:
         records = await self.repository.list(limit=limit, offset=offset)

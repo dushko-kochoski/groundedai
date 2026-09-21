@@ -8,13 +8,26 @@ from app.core.exceptions import ApplicationError
 from app.services.ingestion.validation import (
     decode_and_normalize_text,
     read_upload_bounded,
+    validate_file_signature,
     validate_upload_metadata,
 )
 
 
-@pytest.mark.parametrize("filename", ["notes.txt", "README.md", "guide.markdown"])
-def test_supported_extensions_are_accepted(filename: str) -> None:
-    result = validate_upload_metadata(filename, "text/plain")
+@pytest.mark.parametrize(
+    ("filename", "content_type"),
+    [
+        ("notes.txt", "text/plain"),
+        ("README.md", "text/markdown"),
+        ("guide.markdown", "application/x-markdown"),
+        ("policy.pdf", "application/pdf"),
+        (
+            "handbook.docx",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ),
+    ],
+)
+def test_supported_extensions_are_accepted(filename: str, content_type: str) -> None:
+    result = validate_upload_metadata(filename, content_type)
 
     assert result.filename == filename
 
@@ -27,7 +40,7 @@ def test_user_path_is_removed_from_display_filename() -> None:
 
 def test_unsupported_extension_is_rejected() -> None:
     with pytest.raises(ApplicationError, match="Only .txt") as error:
-        validate_upload_metadata("report.pdf", "application/pdf")
+        validate_upload_metadata("program.exe", "application/octet-stream")
 
     assert error.value.status_code == 415
     assert error.value.code == "unsupported_file_type"
@@ -38,6 +51,16 @@ def test_unsupported_content_type_is_rejected() -> None:
         validate_upload_metadata("report.txt", "application/pdf")
 
     assert error.value.code == "unsupported_content_type"
+
+
+def test_binary_signatures_are_validated() -> None:
+    validate_file_signature(".pdf", b"%PDF-valid-enough-for-signature-check")
+    validate_file_signature(".docx", b"PK-valid-enough-for-signature-check")
+
+    with pytest.raises(ApplicationError, match="PDF signature"):
+        validate_file_signature(".pdf", b"not a pdf")
+    with pytest.raises(ApplicationError, match="DOCX container"):
+        validate_file_signature(".docx", b"not a docx")
 
 
 async def test_bounded_read_calculates_sha256() -> None:
@@ -87,4 +110,3 @@ def test_whitespace_only_document_is_rejected() -> None:
         decode_and_normalize_text(b" \n\n\t")
 
     assert error.value.code == "empty_document"
-

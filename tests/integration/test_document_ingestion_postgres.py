@@ -1,11 +1,14 @@
 import os
 import uuid
 from collections.abc import AsyncIterator
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from docx import Document as DocxDocument
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from reportlab.pdfgen import canvas
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -14,6 +17,26 @@ from app.db.session import get_db_session
 from app.main import create_app
 
 pytestmark = pytest.mark.integration
+
+
+def _pdf_bytes() -> bytes:
+    output = BytesIO()
+    document = canvas.Canvas(output)
+    document.drawString(72, 720, "Refunds are accepted within thirty days of purchase.")
+    document.showPage()
+    document.drawString(72, 720, "A receipt is required for refund processing.")
+    document.showPage()
+    document.save()
+    return output.getvalue()
+
+
+def _docx_bytes() -> bytes:
+    output = BytesIO()
+    document = DocxDocument()
+    document.add_heading("Remote Work", level=1)
+    document.add_paragraph("Employees may work from home two days each week.")
+    document.save(output)
+    return output.getvalue()
 
 
 @pytest.fixture
@@ -29,10 +52,10 @@ async def postgres_client(tmp_path: Path) -> AsyncIterator[tuple[AsyncClient, Pa
         app_env="test",
         database_url=database_url,
         upload_dir=upload_dir,
-        max_upload_bytes=1024,
+        max_upload_bytes=1024 * 1024,
         chunk_target_chars=100,
         chunk_overlap_chars=20,
-        embedding_dimension=256,
+        embedding_dimension=1536,
     )
 
     async def test_session() -> AsyncIterator[AsyncSession]:
@@ -120,7 +143,7 @@ async def test_ingestion_persists_vectors_and_deletion_cascades(
     assert document_row[1] == f"{txt_id.hex}.txt"
     assert chunk_row[0] >= 2
     assert chunk_row[1] is True
-    assert chunk_row[2] == 256
+    assert chunk_row[2] == 1536
 
     deleted = await client.delete(f"/api/v1/documents/{txt_id}")
     missing = await client.get(f"/api/v1/documents/{txt_id}")
@@ -141,3 +164,72 @@ async def test_ingestion_persists_vectors_and_deletion_cascades(
     assert document_count == 0
     assert chunk_count == 0
     assert (await client.delete(f"/api/v1/documents/{markdown_id}")).status_code == 200
+
+
+async def test_pdf_and_docx_are_persisted_retrievable_and_deleted(
+    postgres_client: tuple[AsyncClient, Path],
+) -> None:
+    client, upload_dir = postgres_client
+    uploads = [
+        ("integration-policy.pdf", _pdf_bytes(), "application/pdf", ".pdf"),
+        (
+            "integration-handbook.docx",
+            _docx_bytes(),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".docx",
+        ),
+    ]
+    document_ids: list[uuid.UUID] = []
+
+    for filename, content, content_type, extension in uploads:
+        response = await client.post(
+            "/api/v1/documents", files={"file": (filename, content, content_type)}
+        )
+        assert response.status_code == 201, response.text
+        document_id = uuid.UUID(response.json()["id"])
+        document_ids.append(document_id)
+        assert response.json()["status"] == "ready"
+        assert (upload_dir / f"{document_id.hex}{extension}").is_file()
+
+    pdf_search = await client.post(
+        "/api/v1/retrieval/search",
+        json={"query": "refund receipt thirty days", "min_score": 0.0},
+    )
+    docx_search = await client.post(
+        "/api/v1/retrieval/search",
+        json={"query": "employees work home two days", "min_score": 0.0},
+    )
+    assert pdf_search.status_code == 200
+    assert pdf_search.json()["results"][0]["document_id"] == str(document_ids[0])
+    assert pdf_search.json()["results"][0]["page_number"] in {1, 2}
+    assert docx_search.status_code == 200
+    assert docx_search.json()["results"][0]["document_id"] == str(document_ids[1])
+    assert docx_search.json()["results"][0]["section"] == "Remote Work"
+
+    database_url = os.environ["TEST_DATABASE_URL"]
+    verification_engine = create_async_engine(database_url)
+    async with verification_engine.connect() as connection:
+        rows = (
+            await connection.execute(
+                text(
+                    "SELECT document_id, vector_dims(embedding), embedding_provider, "
+                    "embedding_model, embedding_dimension, embedding_version, metadata "
+                    "FROM document_chunks WHERE document_id IN (:pdf_id, :docx_id)"
+                ),
+                {"pdf_id": document_ids[0], "docx_id": document_ids[1]},
+            )
+        ).all()
+    await verification_engine.dispose()
+    assert rows
+    expected_identity = (
+        1536,
+        "deterministic-feature-hashing",
+        "feature-hashing-v1",
+        1536,
+        "1",
+    )
+    assert all(row[1:6] == expected_identity for row in rows)
+
+    for document_id, (_, _, _, extension) in zip(document_ids, uploads, strict=True):
+        assert (await client.delete(f"/api/v1/documents/{document_id}")).status_code == 200
+        assert not (upload_dir / f"{document_id.hex}{extension}").exists()

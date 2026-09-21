@@ -5,7 +5,7 @@ is being built in measured phases so that each capability is testable before the
 
 ## Current status
 
-Phases 1 through 3 are implemented:
+Phases 1 through 4 (evidence layer only) are implemented:
 
 - FastAPI application with `/health` and dependency-aware `/ready` endpoints
 - environment-driven configuration with validation
@@ -13,17 +13,18 @@ Phases 1 through 3 are implemented:
 - async SQLAlchemy engine and session factory
 - PostgreSQL 17 with pgvector through Docker Compose
 - Alembic migration enabling pgvector and creating the initial `documents` table
-- synchronous TXT and Markdown ingestion with bounded reads and strict UTF-8 decoding
+- synchronous TXT, Markdown, text-PDF, and DOCX ingestion with bounded reads
 - SHA-256 deduplication enforced by a database uniqueness constraint
-- paragraph-aware chunking and deterministic 256-dimensional local embeddings
+- paragraph-aware chunking with PDF page and DOCX heading metadata
+- configurable deterministic or OpenAI embedding providers using one 1,536-dimensional space
 - pgvector-backed document chunks and persistent original-file storage
 - versioned document create/list/detail/delete APIs
 - measured exact-cosine retrieval with thresholds, source metadata, and timing diagnostics
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
 
-PDF/DOCX extraction, real embedding providers, RAG answer generation, evaluation, MCP, and exports
-are **not implemented yet**. They belong to later phases.
+OCR, RAG answer generation, evaluation, MCP, and exports are **not implemented yet**. PDF support
+is limited to documents with extractable text; scanned/image-only PDFs are rejected.
 
 ## Architecture
 
@@ -68,8 +69,11 @@ docker compose up --build
 
 ## Document API
 
-Phase 2 accepts `.txt`, `.md`, and `.markdown` files containing UTF-8 or UTF-8-with-BOM text.
-Uploads are synchronous and return a `ready` document only after its chunks and vectors commit.
+The endpoint accepts `.txt`, `.md`, `.markdown`, `.pdf`, and `.docx`. Text formats must contain
+UTF-8 or UTF-8-with-BOM text. PDF extraction is page-by-page and preserves one-based page numbers.
+DOCX extraction preserves heading names as section metadata where Word styles identify them.
+Legacy `.doc`, macros, OCR, and text inside images are not supported. Uploads are synchronous and
+return a `ready` document only after its chunks and vectors commit.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/documents \
@@ -81,8 +85,9 @@ curl -X DELETE http://localhost:8000/api/v1/documents/DOCUMENT_ID
 ```
 
 The default upload limit is 10 MiB. `MAX_UPLOAD_BYTES` changes it. Files are read incrementally and
-rejected with HTTP 413 as soon as the limit is exceeded. Empty files, invalid UTF-8, unsupported
-extensions, and incompatible content types return structured client errors.
+rejected with HTTP 413 as soon as the limit is exceeded. Empty files, invalid UTF-8,
+malformed/encrypted PDFs, malformed DOCX files, unsupported extensions, and incompatible content
+types return structured client errors.
 
 Original bytes are stored below `UPLOAD_DIR` using application-generated UUID filenames; the
 caller-provided filename is metadata only and is never used as a path. Docker uses the persistent
@@ -94,9 +99,27 @@ with the existing document ID and does not create another file or chunk set. The
 constraint remains the final authority under concurrent uploads.
 
 Chunking combines adjacent paragraphs up to `CHUNK_TARGET_CHARS`, safely splits oversized
-paragraphs, and prepends up to `CHUNK_OVERLAP_CHARS` from the preceding chunk. Embeddings use a
-network-free token-feature hashing provider and L2 normalization. The current schema dimension is
-fixed at 256; changing it requires a migration.
+paragraphs, and prepends up to `CHUNK_OVERLAP_CHARS` from the preceding chunk. PDF chunks never
+cross page boundaries; DOCX chunks never cross parsed heading-section boundaries.
+
+The default `deterministic` embedding provider uses network-free, L2-normalized token feature
+hashing for repeatable development and CI. It is lexical, not a production semantic model. The
+`openai` provider uses `text-embedding-3-small`, validates responses, batches inputs, and applies
+bounded retries to timeouts, transport errors, HTTP 429, and transient 5xx responses. Credentials
+come only from settings and are never logged.
+
+```text
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_API_KEY=<configured outside the repository>
+EMBEDDING_DIMENSION=1536
+```
+
+Provider, model, dimension, and implementation version are stored on every chunk and enforced by
+retrieval filters. The database uses one `VECTOR(1536)` column. Migration `20260921_0003` refuses
+to run while documents exist because old 256-dimensional vectors cannot be reused; delete them
+through the API before migration, then re-ingest. Any future model or dimension change likewise
+requires re-embedding.
 
 ## Retrieval API
 
@@ -128,7 +151,10 @@ Representative response:
     }
   ],
   "diagnostics": {
-    "provider": "deterministic-feature-hashing",
+      "provider": "deterministic-feature-hashing",
+      "model": "feature-hashing-v1",
+      "dimension": 1536,
+      "version": "1",
     "requested_top_k": 5,
     "database_candidates_considered": 2,
     "returned_count": 1,
@@ -151,7 +177,7 @@ Results are returned in descending score order. `RETRIEVAL_MAX_RETURNED_CHARS` k
 relevance-ordered prefix of complete chunks that fits the budget; chunk text is never cut. Queries
 are rejected rather than truncated when they exceed `RETRIEVAL_MAX_QUERY_CHARS`.
 
-The current feature-hashing embeddings are lexical and development-only. They are useful for
+The default feature-hashing embeddings are lexical and development-only. They are useful for
 repeatable overlap-based retrieval tests, but they are not a production semantic embedding model.
 No ANN index is present: exact search remains the measured baseline for the current dataset size.
 
@@ -177,13 +203,15 @@ On macOS/Linux use `export` instead of `set`.
 
 Copy `.env.example` to `.env`. Development defaults contain local-only credentials; production
 deployments must supply their own `DATABASE_URL` and other secrets. Ingestion settings include
-`UPLOAD_DIR`, `MAX_UPLOAD_BYTES`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`, and the schema-fixed
-`EMBEDDING_DIMENSION=256`. Retrieval settings include `RETRIEVAL_TOP_K`,
+`UPLOAD_DIR`, `MAX_UPLOAD_BYTES`, `CHUNK_TARGET_CHARS`, and `CHUNK_OVERLAP_CHARS`. Embedding settings
+include `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY`, the schema-fixed
+`EMBEDDING_DIMENSION=1536`, `EMBEDDING_TIMEOUT_SECONDS`, `EMBEDDING_MAX_RETRIES`, and
+`EMBEDDING_BATCH_SIZE`. Retrieval settings include `RETRIEVAL_TOP_K`,
 `RETRIEVAL_MAX_TOP_K`, `RETRIEVAL_MIN_SCORE`, `RETRIEVAL_MAX_QUERY_CHARS`, and
 `RETRIEVAL_MAX_RETURNED_CHARS`.
 
 ## Next phase
 
-Phase 4 should add grounded answer generation that consumes `RetrievalService` directly, validates
+Phase 5 should add grounded answer generation that consumes `RetrievalService` directly, validates
 structured model output and source IDs, rejects citations not present in retrieved evidence, and
 abstains when retrieval is insufficient.

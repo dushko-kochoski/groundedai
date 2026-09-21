@@ -16,6 +16,14 @@ class DeterministicEmbeddingProvider:
         return "deterministic-feature-hashing"
 
     @property
+    def model(self) -> str:
+        return "feature-hashing-v1"
+
+    @property
+    def version(self) -> str:
+        return "1"
+
+    @property
     def dimension(self) -> int:
         return self._dimension
 

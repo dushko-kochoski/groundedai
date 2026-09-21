@@ -28,6 +28,10 @@ class RetrievalRepository:
         *,
         query_embedding: list[float],
         top_k: int,
+        embedding_provider: str,
+        embedding_model: str,
+        embedding_dimension: int,
+        embedding_version: str,
     ) -> list[RetrievalCandidate]:
         distance = DocumentChunk.embedding.cosine_distance(query_embedding)
         statement = (
@@ -41,7 +45,13 @@ class RetrievalRepository:
                 distance.label("cosine_distance"),
             )
             .join(Document, Document.id == DocumentChunk.document_id)
-            .where(Document.status == DocumentStatus.READY)
+            .where(
+                Document.status == DocumentStatus.READY,
+                DocumentChunk.embedding_provider == embedding_provider,
+                DocumentChunk.embedding_model == embedding_model,
+                DocumentChunk.embedding_dimension == embedding_dimension,
+                DocumentChunk.embedding_version == embedding_version,
+            )
             .order_by(distance.asc(), DocumentChunk.id.asc())
             .limit(top_k)
         )

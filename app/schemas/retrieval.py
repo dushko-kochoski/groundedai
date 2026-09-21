@@ -22,6 +22,9 @@ class RetrievalResult(BaseModel):
 
 class RetrievalDiagnostics(BaseModel):
     provider: str
+    model: str
+    dimension: int
+    version: str
     requested_top_k: int
     database_candidates_considered: int
     returned_count: int
@@ -37,4 +40,3 @@ class RetrievalSearchResponse(BaseModel):
     query: str
     results: list[RetrievalResult]
     diagnostics: RetrievalDiagnostics
-

@@ -21,9 +21,17 @@ class ApiRetrievalRepository:
         ]
 
     async def search(
-        self, *, query_embedding: list[float], top_k: int
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int,
+        embedding_provider: str,
+        embedding_model: str,
+        embedding_dimension: int,
+        embedding_version: str,
     ) -> list[RetrievalCandidate]:
         assert query_embedding
+        assert embedding_dimension == 1536
         return self.candidates[:top_k]
 
     @staticmethod
@@ -44,7 +52,7 @@ async def retrieval_client() -> AsyncIterator[AsyncClient]:
     app: FastAPI = create_app()
     service = RetrievalService(
         repository=ApiRetrievalRepository(),
-        embeddings=DeterministicEmbeddingProvider(256),
+        embeddings=DeterministicEmbeddingProvider(1536),
         default_top_k=3,
         max_top_k=5,
         default_min_score=0.0,

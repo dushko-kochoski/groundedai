@@ -5,11 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.db.session import get_db_session
-from app.providers.embeddings import DeterministicEmbeddingProvider
+from app.providers.embeddings import DeterministicEmbeddingProvider, OpenAIEmbeddingProvider
 from app.providers.embeddings.base import EmbeddingProvider
 from app.repositories.documents import DocumentRepository
 from app.repositories.retrieval import RetrievalRepository
 from app.services.ingestion.chunking import ParagraphChunker
+from app.services.ingestion.parsers import DocumentParserRegistry
 from app.services.ingestion.service import DocumentService, DocumentServiceProtocol
 from app.services.retrieval import RetrievalService, RetrievalServiceProtocol
 from app.services.storage import LocalDocumentStorage
@@ -18,6 +19,17 @@ from app.services.storage import LocalDocumentStorage
 def get_embedding_provider(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EmbeddingProvider:
+    if settings.embedding_provider == "openai":
+        if settings.embedding_api_key is None:
+            raise RuntimeError("OpenAI embedding API key is not configured")
+        return OpenAIEmbeddingProvider(
+            api_key=settings.embedding_api_key.get_secret_value(),
+            model=settings.embedding_model,
+            dimension=settings.embedding_dimension,
+            timeout_seconds=settings.embedding_timeout_seconds,
+            max_retries=settings.embedding_max_retries,
+            batch_size=settings.embedding_batch_size,
+        )
     return DeterministicEmbeddingProvider(settings.embedding_dimension)
 
 
@@ -34,6 +46,7 @@ def get_document_service(
             overlap_chars=settings.chunk_overlap_chars,
         ),
         embeddings=embeddings,
+        parsers=DocumentParserRegistry(),
         max_upload_bytes=settings.max_upload_bytes,
     )
 

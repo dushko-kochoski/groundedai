@@ -19,11 +19,22 @@ def test_settings_reject_invalid_retrieval_score() -> None:
 def test_settings_parse_embedding_dimension_from_environment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("EMBEDDING_DIMENSION", "256")
+    monkeypatch.setenv("EMBEDDING_DIMENSION", "1536")
 
-    assert Settings(_env_file=None).embedding_dimension == 256
+    assert Settings(_env_file=None).embedding_dimension == 1536
 
 
 def test_settings_reject_embedding_dimension_drift() -> None:
-    with pytest.raises(ValidationError, match="must be 256"):
-        Settings(embedding_dimension=128)
+    with pytest.raises(ValidationError, match="must be 1536"):
+        Settings(embedding_dimension=256)
+
+
+def test_openai_provider_requires_credentials() -> None:
+    with pytest.raises(ValidationError, match="EMBEDDING_API_KEY is required"):
+        Settings(embedding_provider="openai", embedding_api_key=None)
+
+
+def test_deterministic_provider_does_not_require_credentials() -> None:
+    settings = Settings(embedding_provider="deterministic", embedding_api_key=None)
+
+    assert settings.embedding_provider == "deterministic"
