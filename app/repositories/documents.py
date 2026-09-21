@@ -53,6 +53,15 @@ class DocumentRepository:
         await self.session.delete(document)
         await self.session.flush()
 
+    async def mark_evaluation_fixture(self, document: Document, fixture_id: str) -> None:
+        document.metadata_ = {
+            **document.metadata_,
+            "evaluation_fixture": True,
+            "evaluation_fixture_id": fixture_id,
+        }
+        await self.session.commit()
+        await self.session.refresh(document)
+
     async def commit(self) -> None:
         await self.session.commit()
 

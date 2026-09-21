@@ -32,6 +32,7 @@ class RetrievalRepository:
         embedding_model: str,
         embedding_dimension: int,
         embedding_version: str,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> list[RetrievalCandidate]:
         distance = DocumentChunk.embedding.cosine_distance(query_embedding)
         statement = (
@@ -55,6 +56,12 @@ class RetrievalRepository:
             .order_by(distance.asc(), DocumentChunk.id.asc())
             .limit(top_k)
         )
+        if document_ids is not None:
+            statement = statement.where(Document.id.in_(document_ids))
+        else:
+            statement = statement.where(
+                ~Document.metadata_.contains({"evaluation_fixture": True})
+            )
         rows = (await self.session.execute(statement)).all()
         return [
             RetrievalCandidate(

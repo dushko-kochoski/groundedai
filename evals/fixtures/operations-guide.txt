@@ -1,0 +1,7 @@
+Operations Guide
+
+Database backups run every Sunday at 02:00 UTC. Backup copies are retained for 90 days.
+
+Disaster recovery exercises occur quarterly. The recovery time objective is four hours.
+
+Production incidents classified as severity one require an incident commander within 15 minutes.

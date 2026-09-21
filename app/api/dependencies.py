@@ -13,8 +13,11 @@ from app.providers.generation import (
     OpenAIGenerationProvider,
 )
 from app.repositories.documents import DocumentRepository
+from app.repositories.evaluations import EvaluationRepository
 from app.repositories.query_runs import QueryRunRepository
 from app.repositories.retrieval import RetrievalRepository
+from app.services.evaluation import DatasetRegistry, EvaluationService, EvaluationServiceProtocol
+from app.services.evaluation.fixtures import EvaluationFixturePreparer
 from app.services.generation import GroundedAnswerService, GroundedAnswerServiceProtocol
 from app.services.ingestion.chunking import ParagraphChunker
 from app.services.ingestion.parsers import DocumentParserRegistry
@@ -99,4 +102,33 @@ def get_grounded_answer_service(
         retrieval=retrieval,
         generation=generation,
         runs=QueryRunRepository(session),
+    )
+
+
+def get_evaluation_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    embeddings: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+    generation: Annotated[GenerationProvider, Depends(get_generation_provider)],
+    documents: Annotated[DocumentServiceProtocol, Depends(get_document_service)],
+    retrieval: Annotated[RetrievalServiceProtocol, Depends(get_retrieval_service)],
+    grounded_answers: Annotated[
+        GroundedAnswerServiceProtocol, Depends(get_grounded_answer_service)
+    ],
+) -> EvaluationServiceProtocol:
+    registry = DatasetRegistry(settings.evaluation_root)
+    return EvaluationService(
+        registry=registry,
+        fixtures=EvaluationFixturePreparer(
+            registry=registry,
+            documents=DocumentRepository(session),
+            ingestion=documents,
+        ),
+        retrieval=retrieval,
+        grounded_answers=grounded_answers,
+        embeddings=embeddings,
+        generation=generation,
+        repository=EvaluationRepository(session),
+        default_top_k=settings.retrieval_top_k,
+        default_min_score=settings.retrieval_min_score,
     )

@@ -5,7 +5,7 @@ is being built in measured phases so that each capability is testable before the
 
 ## Current status
 
-Phases 1 through 5 are implemented:
+Phases 1 through 6 are implemented:
 
 - FastAPI application with `/health` and dependency-aware `/ready` endpoints
 - environment-driven configuration with validation
@@ -22,10 +22,13 @@ Phases 1 through 5 are implemented:
 - measured exact-cosine retrieval with thresholds, source metadata, and timing diagnostics
 - grounded deterministic or OpenAI Responses API generation behind a provider interface
 - application-validated ephemeral citation aliases, deterministic abstention, and persisted query runs
+- versioned golden datasets with retrieval-only and end-to-end evaluation modes
+- persisted run/case metrics for retrieval, facts, citations, abstention, latency, and token usage
+- evaluation API and CLI using the same production services as normal queries
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
 
-OCR, automated groundedness evaluation, Langfuse, MCP, and exports are **not implemented yet**.
+OCR, claim-level entailment evaluation, Langfuse, MCP, and exports are **not implemented yet**.
 PDF support is limited to documents with extractable text; scanned/image-only PDFs are rejected.
 
 ## Architecture
@@ -202,8 +205,8 @@ The model may return only aliases supplied in the prompt. GroundedAI rejects unk
 non-abstained answers without citations. Duplicate citations are normalized in first-use order;
 filenames, document IDs, chunk IDs, pages, sections, and scores always come from trusted retrieval
 results rather than model output. This validates citation existence and provenance, but does not
-prove that every answer sentence is semantically entailed by its citation. That measurement belongs
-to Phase 6.
+prove that every answer sentence is semantically entailed by its citation. Phase 6 deliberately
+records this as a remaining limitation rather than inventing a deterministic groundedness score.
 
 Zero qualifying retrieval results produce a deterministic abstention without calling generation.
 With evidence present, the provider may also return a validated structured abstention. Completed
@@ -256,8 +259,43 @@ include `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY`, the schema
 `GENERATION_MODEL`, `OPENAI_API_KEY`, `GENERATION_TIMEOUT_SECONDS`,
 `GENERATION_MAX_RETRIES`, and `GENERATION_MAX_OUTPUT_TOKENS`.
 
+## Automated evaluation
+
+The application-controlled `golden_v1` dataset contains 30 synthetic cases over repository-owned
+TXT, Markdown, text-PDF, and DOCX fixtures. Twenty cases are answerable and ten are explicitly
+unanswerable. Expected facts use normalized acceptable phrases, and expected sources use stable
+fixture IDs. At run time, those IDs are mapped to the trusted UUIDs of checksum-reused fixture
+documents, so matching is independent of local paths and unrelated user documents are excluded
+from evaluation retrieval.
+
+Run the full grounded path or retrieval in isolation:
+
+```bash
+python -m scripts.evaluate --dataset golden_v1 --mode end_to_end
+python -m scripts.evaluate --dataset golden_v1 --mode retrieval_only --json
+
+curl -X POST http://localhost:8000/api/v1/evaluations/run \
+  -H "Content-Type: application/json" \
+  -d '{"dataset":"golden_v1","mode":"end_to_end"}'
+curl http://localhost:8000/api/v1/evaluations/runs/RUN_ID
+curl http://localhost:8000/api/v1/evaluations/runs/RUN_ID/cases
+```
+
+Dataset names resolve through a fixed registry; the API never accepts arbitrary filesystem paths.
+Repeated runs reuse ready fixture documents by SHA-256 checksum and never delete unrelated user
+documents. Evaluation-owned documents are metadata-tagged, excluded from ordinary retrieval, and
+included only through the evaluator's explicit UUID scope. Run aggregates and individual case
+results are persisted separately. Retrieval metrics
+are Hit@K, Recall@K, MRR, zero-result rate, and result count. End-to-end metrics add deterministic
+fact coverage, citation provenance/source matching, abstention classification, latency, and token
+totals where providers report them. Cost remains null unless real token usage and a separately
+versioned matching price configuration exist.
+
+See [docs/EVALUATION.md](docs/EVALUATION.md) for metric definitions, the measured deterministic
+baseline, failure analysis, dataset versioning rules, and current limitations.
+
 ## Next phase
 
-Phase 6 should add a golden evaluation dataset and measured retrieval, answer, citation,
-unsupported-claim, and abstention metrics. It should not claim semantic groundedness improvement
-until those measurements demonstrate it.
+Phase 7 should add vendor-neutral tracing/observability around the already measured ingestion,
+retrieval, generation, and evaluation paths. It should preserve request/query/evaluation correlation
+without making core services depend directly on a tracing vendor.

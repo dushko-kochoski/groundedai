@@ -29,9 +29,11 @@ class ApiRetrievalRepository:
         embedding_model: str,
         embedding_dimension: int,
         embedding_version: str,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> list[RetrievalCandidate]:
         assert query_embedding
         assert embedding_dimension == 1536
+        assert document_ids is None
         return self.candidates[:top_k]
 
     @staticmethod
@@ -90,9 +92,7 @@ async def test_empty_query_returns_structured_error(
 
 
 async def test_oversized_query_returns_structured_error(retrieval_client: AsyncClient) -> None:
-    response = await retrieval_client.post(
-        "/api/v1/retrieval/search", json={"query": "x" * 21}
-    )
+    response = await retrieval_client.post("/api/v1/retrieval/search", json={"query": "x" * 21})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "query_too_long"

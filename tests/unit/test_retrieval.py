@@ -12,6 +12,7 @@ class FakeRetrievalRepository:
     def __init__(self, candidates: list[RetrievalCandidate]) -> None:
         self.candidates = candidates
         self.last_top_k: int | None = None
+        self.last_document_ids: set[uuid.UUID] | None = None
 
     async def search(
         self,
@@ -22,12 +23,14 @@ class FakeRetrievalRepository:
         embedding_model: str,
         embedding_dimension: int,
         embedding_version: str,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> list[RetrievalCandidate]:
         assert len(query_embedding) == 1536
         assert embedding_provider == "deterministic-feature-hashing"
         assert embedding_model == "feature-hashing-v1"
         assert embedding_dimension == 1536
         assert embedding_version == "1"
+        self.last_document_ids = document_ids
         self.last_top_k = top_k
         return self.candidates[:top_k]
 
@@ -42,6 +45,16 @@ def candidate(*, distance: float, text: str, index: int = 0) -> RetrievalCandida
         metadata={"page_number": None, "section": "Policy"},
         cosine_distance=distance,
     )
+
+
+async def test_optional_document_scope_is_forwarded_to_repository() -> None:
+    repository = FakeRetrievalRepository([])
+    retrieval = service(repository)
+    allowed = {uuid.uuid4(), uuid.uuid4()}
+
+    await retrieval.retrieve("scoped query", document_ids=allowed)
+
+    assert repository.last_document_ids == allowed
 
 
 def service(
@@ -142,9 +155,7 @@ async def test_character_budget_keeps_only_complete_relevance_prefix() -> None:
         [candidate(distance=0.1, text="123456"), candidate(distance=0.2, text="abcdef")]
     )
 
-    response = await service(repository, max_returned_chars=10).retrieve(
-        "query", min_score=-1.0
-    )
+    response = await service(repository, max_returned_chars=10).retrieve("query", min_score=-1.0)
 
     assert [result.text for result in response.results] == ["123456"]
     assert response.diagnostics.returned_chars == 6

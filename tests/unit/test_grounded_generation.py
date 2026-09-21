@@ -66,6 +66,7 @@ class FakeRetrieval:
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> RetrievalSearchResponse:
         return self.response
 
@@ -144,9 +145,7 @@ def test_prompt_builds_aliases_and_quotes_untrusted_document_instructions() -> N
 
 async def test_supported_answer_resolves_trusted_citations_in_first_use_order() -> None:
     results = [retrieval_result(1), retrieval_result(2, "A second policy passage.")]
-    generation = FixedGeneration(
-        GenerationResult(output=output(citations=["S2", "S1", "S2"]))
-    )
+    generation = FixedGeneration(GenerationResult(output=output(citations=["S2", "S1", "S2"])))
     grounded, _ = service(results, generation)
 
     response = await grounded.query("question")

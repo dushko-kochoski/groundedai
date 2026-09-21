@@ -14,6 +14,8 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
+COPY evals ./evals
+COPY scripts ./scripts
 
 RUN pip install --upgrade pip && pip install .
 

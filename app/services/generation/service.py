@@ -40,6 +40,7 @@ class GroundedAnswerServiceProtocol(Protocol):
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> GroundedQueryResponse: ...
 
     async def get_run(self, run_id: uuid.UUID) -> QueryRunResponse: ...
@@ -67,9 +68,15 @@ class GroundedAnswerService:
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> GroundedQueryResponse:
         started = time.perf_counter()
-        retrieval = await self.retrieval.retrieve(question, top_k=top_k, min_score=min_score)
+        retrieval = await self.retrieval.retrieve(
+            question,
+            top_k=top_k,
+            min_score=min_score,
+            document_ids=document_ids,
+        )
         prompt = build_grounded_prompt(retrieval.query, retrieval.results)
         retrieval_snapshot = self._retrieval_snapshot(prompt, retrieval.results)
 

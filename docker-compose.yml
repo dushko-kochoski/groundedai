@@ -41,6 +41,7 @@ services:
       RETRIEVAL_MIN_SCORE: 0.15
       RETRIEVAL_MAX_QUERY_CHARS: 2000
       RETRIEVAL_MAX_RETURNED_CHARS: 6000
+      EVALUATION_ROOT: /app/evals
     ports:
       - "8000:8000"
     depends_on:

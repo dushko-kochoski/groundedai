@@ -1,6 +1,7 @@
 import logging
 import math
 import time
+import uuid
 from typing import Protocol
 
 from app.core.exceptions import ApplicationError
@@ -25,6 +26,7 @@ class RetrievalRepositoryProtocol(Protocol):
         embedding_model: str,
         embedding_dimension: int,
         embedding_version: str,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> list[RetrievalCandidate]: ...
 
 
@@ -35,6 +37,7 @@ class RetrievalServiceProtocol(Protocol):
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> RetrievalSearchResponse: ...
 
 
@@ -71,6 +74,7 @@ class RetrievalService:
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        document_ids: set[uuid.UUID] | None = None,
     ) -> RetrievalSearchResponse:
         total_started = time.perf_counter()
         normalized_query = self._validate_query(query)
@@ -90,6 +94,7 @@ class RetrievalService:
             embedding_model=self.embeddings.model,
             embedding_dimension=self.embeddings.dimension,
             embedding_version=self.embeddings.version,
+            document_ids=document_ids,
         )
         search_ms = self._elapsed_ms(search_started)
 
