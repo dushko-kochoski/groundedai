@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(default=20.0, gt=0, le=300)
     embedding_max_retries: int = Field(default=2, ge=0, le=5)
     embedding_batch_size: int = Field(default=64, ge=1, le=2048)
+    generation_provider: Literal["deterministic", "openai"] = "deterministic"
+    generation_model: str = "gpt-5-mini"
+    openai_api_key: SecretStr | None = None
+    generation_timeout_seconds: float = Field(default=30.0, gt=0, le=300)
+    generation_max_retries: int = Field(default=2, ge=0, le=5)
+    generation_max_output_tokens: int = Field(default=800, ge=64, le=16_384)
     retrieval_top_k: int = Field(default=5, ge=1)
     retrieval_max_top_k: int = Field(default=20, ge=1, le=100)
     retrieval_min_score: float = Field(default=0.15, ge=-1.0, le=1.0)
@@ -48,6 +54,11 @@ class Settings(BaseSettings):
                 )
             if self.embedding_api_key is None or not self.embedding_api_key.get_secret_value():
                 raise ValueError("EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=openai")
+        if self.generation_provider == "openai":
+            if not self.generation_model.strip():
+                raise ValueError("GENERATION_MODEL must not be empty")
+            if self.openai_api_key is None or not self.openai_api_key.get_secret_value():
+                raise ValueError("OPENAI_API_KEY is required when GENERATION_PROVIDER=openai")
         if self.retrieval_top_k > self.retrieval_max_top_k:
             raise ValueError("RETRIEVAL_TOP_K must not exceed RETRIEVAL_MAX_TOP_K")
         return self

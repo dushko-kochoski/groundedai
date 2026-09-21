@@ -38,3 +38,14 @@ def test_deterministic_provider_does_not_require_credentials() -> None:
     settings = Settings(embedding_provider="deterministic", embedding_api_key=None)
 
     assert settings.embedding_provider == "deterministic"
+
+
+def test_openai_generation_requires_credentials() -> None:
+    with pytest.raises(ValidationError, match="OPENAI_API_KEY is required"):
+        Settings(_env_file=None, generation_provider="openai", openai_api_key=None)
+
+
+def test_deterministic_generation_does_not_require_credentials() -> None:
+    settings = Settings(_env_file=None, generation_provider="deterministic", openai_api_key=None)
+
+    assert settings.generation_provider == "deterministic"

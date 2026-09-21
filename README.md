@@ -5,7 +5,7 @@ is being built in measured phases so that each capability is testable before the
 
 ## Current status
 
-Phases 1 through 4 (evidence layer only) are implemented:
+Phases 1 through 5 are implemented:
 
 - FastAPI application with `/health` and dependency-aware `/ready` endpoints
 - environment-driven configuration with validation
@@ -20,11 +20,13 @@ Phases 1 through 4 (evidence layer only) are implemented:
 - pgvector-backed document chunks and persistent original-file storage
 - versioned document create/list/detail/delete APIs
 - measured exact-cosine retrieval with thresholds, source metadata, and timing diagnostics
+- grounded deterministic or OpenAI Responses API generation behind a provider interface
+- application-validated ephemeral citation aliases, deterministic abstention, and persisted query runs
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
 
-OCR, RAG answer generation, evaluation, MCP, and exports are **not implemented yet**. PDF support
-is limited to documents with extractable text; scanned/image-only PDFs are rejected.
+OCR, automated groundedness evaluation, Langfuse, MCP, and exports are **not implemented yet**.
+PDF support is limited to documents with extractable text; scanned/image-only PDFs are rejected.
 
 ## Architecture
 
@@ -123,9 +125,9 @@ requires re-embedding.
 
 ## Retrieval API
 
-GroundedAI can retrieve evidence at this phase but does not yet generate answers. Retrieval uses
-the same deterministic embedding-provider interface as ingestion and an exact PostgreSQL/pgvector
-cosine-distance scan over chunks belonging to `ready` documents.
+Retrieval remains independently available. It uses the same embedding-provider interface as
+ingestion and an exact PostgreSQL/pgvector cosine-distance scan over chunks belonging to `ready`
+documents.
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/retrieval/search \
@@ -181,6 +183,48 @@ The default feature-hashing embeddings are lexical and development-only. They ar
 repeatable overlap-based retrieval tests, but they are not a production semantic embedding model.
 No ANN index is present: exact search remains the measured baseline for the current dataset size.
 
+## Grounded query API
+
+`POST /api/v1/query` calls `RetrievalService.retrieve()` first, uses only its bounded complete
+chunks, assigns ephemeral aliases (`S1`, `S2`, ...), and then invokes the configured generation
+provider. Retrieved document text is serialized as untrusted JSON data and is explicitly separated
+from the versioned application instructions (`grounded_answer_v1`).
+
+```bash
+curl -X POST http://localhost:8000/api/v1/query \
+  -H "Content-Type: application/json" \
+  -d '{"question":"What is the remote work policy?","top_k":5,"min_score":0.25}'
+
+curl http://localhost:8000/api/v1/query-runs/RUN_ID
+```
+
+The model may return only aliases supplied in the prompt. GroundedAI rejects unknown aliases and
+non-abstained answers without citations. Duplicate citations are normalized in first-use order;
+filenames, document IDs, chunk IDs, pages, sections, and scores always come from trusted retrieval
+results rather than model output. This validates citation existence and provenance, but does not
+prove that every answer sentence is semantically entailed by its citation. That measurement belongs
+to Phase 6.
+
+Zero qualifying retrieval results produce a deterministic abstention without calling generation.
+With evidence present, the provider may also return a validated structured abstention. Completed
+answers and abstentions are persisted in `query_runs`; provider, malformed-output, and citation
+integrity failures are persisted with safe error categories and returned without upstream bodies.
+Snapshots contain source metadata, not embeddings or full document text.
+
+The default `deterministic` generation provider is an offline extractive provider for local
+development and CI. Production generation uses the OpenAI Responses API with strict JSON Schema
+Structured Outputs, disabled provider-side response storage, bounded transient retries, and token
+usage capture when reported:
+
+```text
+GENERATION_PROVIDER=openai
+GENERATION_MODEL=gpt-5-mini
+OPENAI_API_KEY=<configured outside the repository>
+GENERATION_TIMEOUT_SECONDS=30
+GENERATION_MAX_RETRIES=2
+GENERATION_MAX_OUTPUT_TOKENS=800
+```
+
 ## Quality gates
 
 ```bash
@@ -208,10 +252,12 @@ include `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY`, the schema
 `EMBEDDING_DIMENSION=1536`, `EMBEDDING_TIMEOUT_SECONDS`, `EMBEDDING_MAX_RETRIES`, and
 `EMBEDDING_BATCH_SIZE`. Retrieval settings include `RETRIEVAL_TOP_K`,
 `RETRIEVAL_MAX_TOP_K`, `RETRIEVAL_MIN_SCORE`, `RETRIEVAL_MAX_QUERY_CHARS`, and
-`RETRIEVAL_MAX_RETURNED_CHARS`.
+`RETRIEVAL_MAX_RETURNED_CHARS`. Generation settings include `GENERATION_PROVIDER`,
+`GENERATION_MODEL`, `OPENAI_API_KEY`, `GENERATION_TIMEOUT_SECONDS`,
+`GENERATION_MAX_RETRIES`, and `GENERATION_MAX_OUTPUT_TOKENS`.
 
 ## Next phase
 
-Phase 5 should add grounded answer generation that consumes `RetrievalService` directly, validates
-structured model output and source IDs, rejects citations not present in retrieved evidence, and
-abstains when retrieval is insufficient.
+Phase 6 should add a golden evaluation dataset and measured retrieval, answer, citation,
+unsupported-claim, and abstention metrics. It should not claim semantic groundedness improvement
+until those measurements demonstrate it.

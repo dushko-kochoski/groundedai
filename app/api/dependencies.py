@@ -7,8 +7,15 @@ from app.core.config import Settings, get_settings
 from app.db.session import get_db_session
 from app.providers.embeddings import DeterministicEmbeddingProvider, OpenAIEmbeddingProvider
 from app.providers.embeddings.base import EmbeddingProvider
+from app.providers.generation import (
+    DeterministicGenerationProvider,
+    GenerationProvider,
+    OpenAIGenerationProvider,
+)
 from app.repositories.documents import DocumentRepository
+from app.repositories.query_runs import QueryRunRepository
 from app.repositories.retrieval import RetrievalRepository
+from app.services.generation import GroundedAnswerService, GroundedAnswerServiceProtocol
 from app.services.ingestion.chunking import ParagraphChunker
 from app.services.ingestion.parsers import DocumentParserRegistry
 from app.services.ingestion.service import DocumentService, DocumentServiceProtocol
@@ -31,6 +38,22 @@ def get_embedding_provider(
             batch_size=settings.embedding_batch_size,
         )
     return DeterministicEmbeddingProvider(settings.embedding_dimension)
+
+
+def get_generation_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GenerationProvider:
+    if settings.generation_provider == "openai":
+        if settings.openai_api_key is None:
+            raise RuntimeError("OpenAI generation API key is not configured")
+        return OpenAIGenerationProvider(
+            api_key=settings.openai_api_key.get_secret_value(),
+            model=settings.generation_model,
+            timeout_seconds=settings.generation_timeout_seconds,
+            max_retries=settings.generation_max_retries,
+            max_output_tokens=settings.generation_max_output_tokens,
+        )
+    return DeterministicGenerationProvider()
 
 
 def get_document_service(
@@ -64,4 +87,16 @@ def get_retrieval_service(
         default_min_score=settings.retrieval_min_score,
         max_query_chars=settings.retrieval_max_query_chars,
         max_returned_chars=settings.retrieval_max_returned_chars,
+    )
+
+
+def get_grounded_answer_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    retrieval: Annotated[RetrievalServiceProtocol, Depends(get_retrieval_service)],
+    generation: Annotated[GenerationProvider, Depends(get_generation_provider)],
+) -> GroundedAnswerServiceProtocol:
+    return GroundedAnswerService(
+        retrieval=retrieval,
+        generation=generation,
+        runs=QueryRunRepository(session),
     )
