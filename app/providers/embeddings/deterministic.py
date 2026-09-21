@@ -12,6 +12,10 @@ class DeterministicEmbeddingProvider:
         self._dimension = dimension
 
     @property
+    def name(self) -> str:
+        return "deterministic-feature-hashing"
+
+    @property
     def dimension(self) -> int:
         return self._dimension
 
@@ -30,4 +34,3 @@ class DeterministicEmbeddingProvider:
 
     async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [await self.embed_text(text) for text in texts]
-

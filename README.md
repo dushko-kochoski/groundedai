@@ -5,7 +5,7 @@ is being built in measured phases so that each capability is testable before the
 
 ## Current status
 
-Phases 1 and 2 are implemented:
+Phases 1 through 3 are implemented:
 
 - FastAPI application with `/health` and dependency-aware `/ready` endpoints
 - environment-driven configuration with validation
@@ -18,11 +18,12 @@ Phases 1 and 2 are implemented:
 - paragraph-aware chunking and deterministic 256-dimensional local embeddings
 - pgvector-backed document chunks and persistent original-file storage
 - versioned document create/list/detail/delete APIs
+- measured exact-cosine retrieval with thresholds, source metadata, and timing diagnostics
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
 
-PDF/DOCX extraction, real embedding providers, semantic query retrieval, RAG generation,
-evaluation, MCP, and exports are **not implemented yet**. They belong to later phases.
+PDF/DOCX extraction, real embedding providers, RAG answer generation, evaluation, MCP, and exports
+are **not implemented yet**. They belong to later phases.
 
 ## Architecture
 
@@ -97,6 +98,63 @@ paragraphs, and prepends up to `CHUNK_OVERLAP_CHARS` from the preceding chunk. E
 network-free token-feature hashing provider and L2 normalization. The current schema dimension is
 fixed at 256; changing it requires a migration.
 
+## Retrieval API
+
+GroundedAI can retrieve evidence at this phase but does not yet generate answers. Retrieval uses
+the same deterministic embedding-provider interface as ingestion and an exact PostgreSQL/pgvector
+cosine-distance scan over chunks belonging to `ready` documents.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/retrieval/search \
+  -H "Content-Type: application/json" \
+  -d '{"query":"refund purchase thirty days","top_k":5,"min_score":0.15}'
+```
+
+Representative response:
+
+```json
+{
+  "query": "refund purchase thirty days",
+  "results": [
+    {
+      "chunk_id": "...",
+      "document_id": "...",
+      "filename": "refund-policy.txt",
+      "chunk_index": 0,
+      "text": "Refund requests are accepted within thirty days of purchase.",
+      "score": 0.75,
+      "page_number": null,
+      "section": null
+    }
+  ],
+  "diagnostics": {
+    "provider": "deterministic-feature-hashing",
+    "requested_top_k": 5,
+    "database_candidates_considered": 2,
+    "returned_count": 1,
+    "min_score": 0.15,
+    "max_returned_chars": 6000,
+    "returned_chars": 62,
+    "embedding_ms": 0.1,
+    "search_ms": 2.0,
+    "total_ms": 2.2
+  }
+}
+```
+
+The application score is always `1 - pgvector_cosine_distance`; higher values mean greater
+similarity. `top_k` is the maximum number of database candidates and defaults to
+`RETRIEVAL_TOP_K`. Overrides cannot exceed `RETRIEVAL_MAX_TOP_K`. Results below
+`min_score` are omitted, and no qualifying evidence returns HTTP 200 with an empty result list.
+
+Results are returned in descending score order. `RETRIEVAL_MAX_RETURNED_CHARS` keeps the longest
+relevance-ordered prefix of complete chunks that fits the budget; chunk text is never cut. Queries
+are rejected rather than truncated when they exceed `RETRIEVAL_MAX_QUERY_CHARS`.
+
+The current feature-hashing embeddings are lexical and development-only. They are useful for
+repeatable overlap-based retrieval tests, but they are not a production semantic embedding model.
+No ANN index is present: exact search remains the measured baseline for the current dataset size.
+
 ## Quality gates
 
 ```bash
@@ -120,10 +178,12 @@ On macOS/Linux use `export` instead of `set`.
 Copy `.env.example` to `.env`. Development defaults contain local-only credentials; production
 deployments must supply their own `DATABASE_URL` and other secrets. Ingestion settings include
 `UPLOAD_DIR`, `MAX_UPLOAD_BYTES`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`, and the schema-fixed
-`EMBEDDING_DIMENSION=256`.
+`EMBEDDING_DIMENSION=256`. Retrieval settings include `RETRIEVAL_TOP_K`,
+`RETRIEVAL_MAX_TOP_K`, `RETRIEVAL_MIN_SCORE`, `RETRIEVAL_MAX_QUERY_CHARS`, and
+`RETRIEVAL_MAX_RETURNED_CHARS`.
 
 ## Next phase
 
-Phase 3 should add question embedding and measured pgvector similarity search with configurable
-Top-K and relevance filtering, returning chunk/source metadata and retrieval diagnostics. It should
-not add answer generation until retrieval behavior is evaluated independently.
+Phase 4 should add grounded answer generation that consumes `RetrievalService` directly, validates
+structured model output and source IDs, rejects citations not present in retrieved evidence, and
+abstains when retrieval is insufficient.

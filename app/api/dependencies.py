@@ -6,15 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.db.session import get_db_session
 from app.providers.embeddings import DeterministicEmbeddingProvider
+from app.providers.embeddings.base import EmbeddingProvider
 from app.repositories.documents import DocumentRepository
+from app.repositories.retrieval import RetrievalRepository
 from app.services.ingestion.chunking import ParagraphChunker
 from app.services.ingestion.service import DocumentService, DocumentServiceProtocol
+from app.services.retrieval import RetrievalService, RetrievalServiceProtocol
 from app.services.storage import LocalDocumentStorage
+
+
+def get_embedding_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> EmbeddingProvider:
+    return DeterministicEmbeddingProvider(settings.embedding_dimension)
 
 
 def get_document_service(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    embeddings: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
 ) -> DocumentServiceProtocol:
     return DocumentService(
         repository=DocumentRepository(session),
@@ -23,7 +33,22 @@ def get_document_service(
             target_chars=settings.chunk_target_chars,
             overlap_chars=settings.chunk_overlap_chars,
         ),
-        embeddings=DeterministicEmbeddingProvider(settings.embedding_dimension),
+        embeddings=embeddings,
         max_upload_bytes=settings.max_upload_bytes,
     )
 
+
+def get_retrieval_service(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    embeddings: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
+) -> RetrievalServiceProtocol:
+    return RetrievalService(
+        repository=RetrievalRepository(session),
+        embeddings=embeddings,
+        default_top_k=settings.retrieval_top_k,
+        max_top_k=settings.retrieval_max_top_k,
+        default_min_score=settings.retrieval_min_score,
+        max_query_chars=settings.retrieval_max_query_chars,
+        max_returned_chars=settings.retrieval_max_returned_chars,
+    )

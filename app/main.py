@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.api.routes.documents import router as documents_router
 from app.api.routes.health import router as health_router
+from app.api.routes.retrieval import router as retrieval_router
 from app.core.config import get_settings
 from app.core.exceptions import ApplicationError, application_error_handler
 from app.core.logging import RequestContextMiddleware, configure_logging
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
     application.add_exception_handler(ApplicationError, application_error_handler)
     application.include_router(health_router)
     application.include_router(documents_router)
+    application.include_router(retrieval_router)
     return application
 
 

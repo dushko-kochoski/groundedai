@@ -23,8 +23,11 @@ class Settings(BaseSettings):
     chunk_target_chars: int = Field(default=1000, ge=100, le=100_000)
     chunk_overlap_chars: int = Field(default=150, ge=0, le=10_000)
     embedding_dimension: int = Field(default=256, ge=1)
-    retrieval_top_k: int = Field(default=5, ge=1, le=50)
-    retrieval_min_score: float = Field(default=0.70, ge=0.0, le=1.0)
+    retrieval_top_k: int = Field(default=5, ge=1)
+    retrieval_max_top_k: int = Field(default=20, ge=1, le=100)
+    retrieval_min_score: float = Field(default=0.15, ge=-1.0, le=1.0)
+    retrieval_max_query_chars: int = Field(default=2000, ge=1, le=100_000)
+    retrieval_max_returned_chars: int = Field(default=6000, ge=1, le=1_000_000)
 
     @model_validator(mode="after")
     def validate_chunk_configuration(self) -> "Settings":
@@ -32,6 +35,8 @@ class Settings(BaseSettings):
             raise ValueError("CHUNK_OVERLAP_CHARS must be smaller than CHUNK_TARGET_CHARS")
         if self.embedding_dimension != 256:
             raise ValueError("EMBEDDING_DIMENSION must be 256 until a schema migration changes it")
+        if self.retrieval_top_k > self.retrieval_max_top_k:
+            raise ValueError("RETRIEVAL_TOP_K must not exceed RETRIEVAL_MAX_TOP_K")
         return self
 
 
