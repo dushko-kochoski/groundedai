@@ -1,0 +1,158 @@
+{
+  "name": "holdout_v1",
+  "version": "1.0.0",
+  "documents": [
+    {"id": "employee_handbook", "filename": "employee-handbook.pdf"},
+    {"id": "expense_policy", "filename": "expense-policy.docx"},
+    {"id": "refund_policy", "filename": "refund-policy.md"},
+    {"id": "operations_guide", "filename": "operations-guide.txt"},
+    {"id": "vendor_policy", "filename": "vendor-policy.md"}
+  ],
+  "cases": [
+    {
+      "id": "holdout_remote_001",
+      "question": "What arrangement lets staff perform duties away from the office, and at what weekly frequency?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "remote_frequency", "acceptable_phrases": ["work remotely two days each week"]}
+      ],
+      "expected_sources": ["employee_handbook"],
+      "expected_locations": [{"source": "employee_handbook", "page_number": 1}],
+      "tags": ["holdout", "paraphrase", "low-lexical-overlap", "pdf"]
+    },
+    {
+      "id": "holdout_leave_001",
+      "question": "What advance notice applies to an extended absence exceeding five consecutive days?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "extended_leave_notice", "acceptable_phrases": ["require two weeks of notice"]}
+      ],
+      "expected_sources": ["employee_handbook"],
+      "expected_locations": [{"source": "employee_handbook", "page_number": 2}],
+      "tags": ["holdout", "paraphrase", "pdf", "page-attribution"]
+    },
+    {
+      "id": "holdout_security_001",
+      "question": "Which protection must be enabled on employer-issued notebooks?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "laptop_encryption", "acceptable_phrases": ["company laptops must use full-disk encryption"]}
+      ],
+      "expected_sources": ["employee_handbook"],
+      "expected_locations": [{"source": "employee_handbook", "page_number": 3}],
+      "tags": ["holdout", "paraphrase", "low-lexical-overlap", "pdf", "page-attribution"]
+    },
+    {
+      "id": "holdout_travel_001",
+      "question": "For a short flight, what seating tier can be reimbursed?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "short_flight_class", "acceptable_phrases": ["economy class"]}
+      ],
+      "expected_sources": ["expense_policy"],
+      "expected_locations": [{"source": "expense_policy", "section": "Travel"}],
+      "tags": ["holdout", "paraphrase", "docx", "section-attribution"]
+    },
+    {
+      "id": "holdout_equipment_001",
+      "question": "At what purchase amount does a home-office item need managerial sign-off?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "home_office_threshold", "acceptable_phrases": ["above 250 US dollars require manager approval"]}
+      ],
+      "expected_sources": ["expense_policy"],
+      "expected_locations": [{"source": "expense_policy", "section": "Equipment"}],
+      "tags": ["holdout", "paraphrase", "docx", "section-attribution"]
+    },
+    {
+      "id": "holdout_refund_001",
+      "question": "Can made-to-order merchandise receive money back?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "personalized_exception", "acceptable_phrases": ["personalized products and final-sale items are not eligible for refund"]}
+      ],
+      "expected_sources": ["refund_policy"],
+      "expected_locations": [],
+      "tags": ["holdout", "paraphrase", "low-lexical-overlap", "markdown"]
+    },
+    {
+      "id": "holdout_recovery_001",
+      "question": "What is the recovery time objective following a disaster?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "recovery_objective", "acceptable_phrases": ["recovery time objective is four hours"]}
+      ],
+      "expected_sources": ["operations_guide"],
+      "expected_locations": [],
+      "tags": ["holdout", "paraphrase", "text"]
+    },
+    {
+      "id": "holdout_vendor_001",
+      "question": "What agreement is mandatory before a supplier handles customer information?",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "supplier_data_agreement", "acceptable_phrases": ["must sign a data processing agreement before access is granted"]}
+      ],
+      "expected_sources": ["vendor_policy"],
+      "expected_locations": [{"source": "vendor_policy", "section": "Data Protection"}],
+      "tags": ["holdout", "paraphrase", "markdown", "section-attribution"]
+    },
+    {
+      "id": "holdout_multi_001",
+      "question": "State the approval rules for working away from the office and booking overseas travel.",
+      "answerable": true,
+      "expected_facts": [
+        {"id": "remote_approval", "acceptable_phrases": ["remote-work days require manager approval"]},
+        {"id": "international_approval", "acceptable_phrases": ["international travel requires manager approval"]}
+      ],
+      "expected_sources": ["employee_handbook", "expense_policy"],
+      "expected_locations": [],
+      "tags": ["holdout", "paraphrase", "multi-document"]
+    },
+    {
+      "id": "holdout_unknown_001",
+      "question": "How many remote-work days may contractors use?",
+      "answerable": false,
+      "expected_facts": [],
+      "expected_sources": [],
+      "expected_locations": [],
+      "tags": ["holdout", "unanswerable", "partial-overlap"]
+    },
+    {
+      "id": "holdout_unknown_002",
+      "question": "What is the reimbursement limit for hotel rooms on international travel?",
+      "answerable": false,
+      "expected_facts": [],
+      "expected_sources": [],
+      "expected_locations": [],
+      "tags": ["holdout", "unanswerable", "partial-overlap", "docx"]
+    },
+    {
+      "id": "holdout_unknown_003",
+      "question": "How frequently are customer data backups tested?",
+      "answerable": false,
+      "expected_facts": [],
+      "expected_sources": [],
+      "expected_locations": [],
+      "tags": ["holdout", "unanswerable", "partial-overlap"]
+    },
+    {
+      "id": "holdout_unknown_004",
+      "question": "Which pension fund manages retirement contributions?",
+      "answerable": false,
+      "expected_facts": [],
+      "expected_sources": [],
+      "expected_locations": [],
+      "tags": ["holdout", "unanswerable", "no-overlap"]
+    },
+    {
+      "id": "holdout_unknown_005",
+      "question": "Are final-sale products covered by a two-year warranty?",
+      "answerable": false,
+      "expected_facts": [],
+      "expected_sources": [],
+      "expected_locations": [],
+      "tags": ["holdout", "unanswerable", "partial-overlap", "markdown"]
+    }
+  ]
+}

@@ -10,7 +10,10 @@ from app.schemas.evaluation import GoldenDataset
 class DatasetRegistry:
     """Resolve only application-owned dataset names, never client paths."""
 
-    DATASETS = {"golden_v1": "golden_v1.json"}
+    DATASETS = {
+        "golden_v1": "golden_v1.json",
+        "holdout_v1": "holdout_v1.json",
+    }
 
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()

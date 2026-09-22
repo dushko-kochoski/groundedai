@@ -20,6 +20,19 @@ def test_golden_v1_dataset_is_valid_and_versioned() -> None:
     assert any("docx" in case.tags for case in dataset.cases)
 
 
+def test_holdout_v1_dataset_is_registered_valid_and_versioned() -> None:
+    dataset = DatasetRegistry(Path("evals")).load("holdout_v1")
+
+    assert dataset.name == "holdout_v1"
+    assert dataset.version == "1.0.0"
+    assert len(dataset.cases) == 14
+    assert sum(case.answerable for case in dataset.cases) == 9
+    assert sum(not case.answerable for case in dataset.cases) == 5
+    assert any("pdf" in case.tags for case in dataset.cases)
+    assert any("docx" in case.tags for case in dataset.cases)
+    assert any("multi-document" in case.tags for case in dataset.cases)
+
+
 def test_unknown_dataset_cannot_be_used_as_a_path() -> None:
     with pytest.raises(ApplicationError, match="not registered"):
         DatasetRegistry(Path("evals")).load("../../secrets")

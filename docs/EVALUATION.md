@@ -229,8 +229,98 @@ lexical score fell below the safety threshold. There are no remaining false answ
 explicit cost of the selected safety policy; improving it requires better evidence signals or
 semantic embeddings, not changing golden expectations.
 
-A separate holdout dataset was not added. The threshold was selected using all of `golden_v1`, so
-the result is calibration performance rather than a blind generalization estimate.
+## Phase 7.1 frozen holdout validation
+
+`holdout_v1` version `1.0.0` contains 14 previously unused questions over the unchanged five
+synthetic fixture documents: nine answerable and five unanswerable. It includes three PDF-source
+questions, two DOCX-section questions, Markdown and text questions, one multi-document question,
+low-overlap paraphrases, partial-vocabulary unanswerable questions, and one no-overlap
+unanswerable question. Its questions and expectations were written and schema-validated before
+the first complete evaluation. They were not changed after results were observed.
+
+The first frozen run, `b59d22d8-bb6a-4497-ac85-b60d7ed74fa1`, completed at
+`2026-09-22T07:41:49Z`. It used the already-selected configuration without recalibration:
+
+- Embeddings: `deterministic-feature-hashing` / `feature-hashing-v1` / version `1`
+- Retrieval: exact cosine, K=5, minimum score 0.15
+- Evidence: `evidence_policy_v1`, minimum score 0.26
+- Generation: `deterministic` / `extractive-v2`
+- Prompt: `grounded_answer_v1`
+
+Measured holdout results:
+
+- Hit@5: 0.5556
+- Recall@5: 0.5000
+- MRR: 0.5556
+- Fact coverage: 0.3000 (3/10 facts)
+- Citation validity: 1.0000
+- Source citation precision: 0.5000
+- Source citation recall: 0.3000
+- Correct answers: 3
+- Correct abstentions: 2
+- False answers: 3
+- False abstentions: 6
+- False-answer rate: 0.6000
+- False-abstention rate: 0.6667
+- Total latency: mean 7.566 ms, p50 4.318 ms, p95/max 49.742 ms
+- Retrieval latency: mean 7.438 ms, p50 4.189 ms, p95/max 49.576 ms
+- Generation latency: mean 0.024 ms, p50 0.000 ms, p95/max 0.087 ms
+
+The single high local latency observation occurred in this small deterministic run and is not a
+production-capacity measurement.
+
+### Calibration versus holdout
+
+| Metric | `golden_v1` calibrated | `holdout_v1` | Holdout minus calibration |
+|---|---:|---:|---:|
+| Hit@5 | 1.0000 | 0.5556 | -0.4444 |
+| Recall@5 | 1.0000 | 0.5000 | -0.5000 |
+| MRR | 1.0000 | 0.5556 | -0.4444 |
+| Fact coverage | 0.8571 | 0.3000 | -0.5571 |
+| Citation precision | 1.0000 | 0.5000 | -0.5000 |
+| Citation recall | 0.8571 | 0.3000 | -0.5571 |
+| False-answer rate | 0.0000 | 0.6000 | +0.6000 |
+| False-abstention rate | 0.1500 | 0.6667 | +0.5167 |
+| Total latency p95 | 3.692 ms | 49.742 ms | +46.050 ms |
+
+This comparison separates calibration performance from holdout performance. The frozen threshold
+removed false answers on the calibration questions but did not generalize to partial-vocabulary
+unanswerable questions, while lexical retrieval also missed several valid paraphrases.
+
+### Holdout failures
+
+Every false answer:
+
+- `holdout_unknown_001`, “How many remote-work days may contractors use?” — top score 0.357217
+  against handbook page 1. The extracted employee policy does not establish contractor coverage.
+- `holdout_unknown_002`, “What is the reimbursement limit for hotel rooms on international
+  travel?” — top score 0.307729 against the Meals section, followed by Travel at 0.290129. Neither
+  passage supplies a hotel limit.
+- `holdout_unknown_003`, “How frequently are customer data backups tested?” — top score 0.323970
+  against the vendor data-protection passage. It does not state backup testing frequency.
+
+Every false abstention:
+
+- `holdout_equipment_001` — no qualifying retrieval result for the home-office purchase threshold.
+- `holdout_leave_001` — correct handbook page retrieved at 0.238145, below evidence minimum 0.26.
+- `holdout_refund_001` — no qualifying result for the made-to-order/personalized-product paraphrase.
+- `holdout_remote_001` — no qualifying result for the low-overlap remote-work paraphrase.
+- `holdout_security_001` — correct handbook page retrieved at 0.162221, below evidence minimum
+  0.26.
+- `holdout_travel_001` — no qualifying result for the seating-tier/economy-class paraphrase.
+
+The multi-document case answered rather than abstaining, but retrieved only the expense-policy
+source and covered one of two facts. This contributes to retrieval recall, fact coverage, and
+citation recall loss without being an abstention-classification error.
+
+No implementation bug was identified. The failures are consistent with the documented lexical
+embedding limitation and with a top-score-only sufficiency policy: high lexical overlap cannot
+prove that evidence answers the precise subject, while paraphrases with little shared vocabulary
+may never reach the policy. No tuning or policy change was made.
+
+This is a small synthetic generalization check, not a statistically representative production
+validation. It measures only this corpus, these fourteen questions, deterministic embeddings, and
+the deterministic extractive provider.
 
 ## Limitations
 
