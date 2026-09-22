@@ -27,6 +27,7 @@ class FakeEvaluationService:
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        evidence_min_score: float | None = None,
     ) -> EvaluationRunResponse:
         if dataset_name != "golden_v1":
             raise ApplicationError(
@@ -66,6 +67,8 @@ class FakeEvaluationService:
             generation_provider="deterministic" if mode == EvaluationMode.END_TO_END else None,
             generation_model="extractive-v1" if mode == EvaluationMode.END_TO_END else None,
             prompt_version="grounded_answer_v1" if mode == EvaluationMode.END_TO_END else None,
+            evidence_policy_version="evidence_policy_v1",
+            evidence_min_score=0.26,
             case_count=30,
             aggregate_metrics={"retrieval": {"hit_at_k": 1.0}},
             started_at=now,

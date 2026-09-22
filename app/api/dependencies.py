@@ -19,6 +19,7 @@ from app.repositories.retrieval import RetrievalRepository
 from app.services.evaluation import DatasetRegistry, EvaluationService, EvaluationServiceProtocol
 from app.services.evaluation.fixtures import EvaluationFixturePreparer
 from app.services.generation import GroundedAnswerService, GroundedAnswerServiceProtocol
+from app.services.generation.evidence import build_evidence_policy
 from app.services.ingestion.chunking import ParagraphChunker
 from app.services.ingestion.parsers import DocumentParserRegistry
 from app.services.ingestion.service import DocumentService, DocumentServiceProtocol
@@ -95,6 +96,8 @@ def get_retrieval_service(
 
 def get_grounded_answer_service(
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    embeddings: Annotated[EmbeddingProvider, Depends(get_embedding_provider)],
     retrieval: Annotated[RetrievalServiceProtocol, Depends(get_retrieval_service)],
     generation: Annotated[GenerationProvider, Depends(get_generation_provider)],
 ) -> GroundedAnswerServiceProtocol:
@@ -102,6 +105,13 @@ def get_grounded_answer_service(
         retrieval=retrieval,
         generation=generation,
         runs=QueryRunRepository(session),
+        evidence_policy=build_evidence_policy(
+            embedding_provider=embeddings.name,
+            embedding_model=embeddings.model,
+            embedding_version=embeddings.version,
+            deterministic_minimum_score=settings.evidence_deterministic_min_score,
+            openai_minimum_score=settings.evidence_openai_min_score,
+        ),
     )
 
 
@@ -117,6 +127,13 @@ def get_evaluation_service(
     ],
 ) -> EvaluationServiceProtocol:
     registry = DatasetRegistry(settings.evaluation_root)
+    evidence_policy = build_evidence_policy(
+        embedding_provider=embeddings.name,
+        embedding_model=embeddings.model,
+        embedding_version=embeddings.version,
+        deterministic_minimum_score=settings.evidence_deterministic_min_score,
+        openai_minimum_score=settings.evidence_openai_min_score,
+    )
     return EvaluationService(
         registry=registry,
         fixtures=EvaluationFixturePreparer(
@@ -131,4 +148,6 @@ def get_evaluation_service(
         repository=EvaluationRepository(session),
         default_top_k=settings.retrieval_top_k,
         default_min_score=settings.retrieval_min_score,
+        evidence_policy_version=evidence_policy.version,
+        default_evidence_min_score=evidence_policy.minimum_score,
     )

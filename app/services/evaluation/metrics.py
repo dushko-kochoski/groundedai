@@ -162,6 +162,7 @@ def aggregate_case_metrics(
             ),
             "abstention_recall": _safe_ratio(correct_abstentions, len(unanswerable)),
             "false_answer_rate": _safe_ratio(false_answers, len(unanswerable)),
+            "false_abstention_rate": _safe_ratio(false_abstentions, len(answerable)),
             "error_count": len(cases) - len(completed),
         },
         "latency": {
@@ -207,6 +208,7 @@ def aggregate_case_metrics(
             "abstention_precision": None,
             "abstention_recall": None,
             "false_answer_rate": None,
+            "false_abstention_rate": None,
             "error_count": len(cases) - len(completed),
         }
     return result
@@ -220,15 +222,30 @@ def compare_aggregates(
         "mrr": ("retrieval", "mrr"),
         "fact_coverage": ("answers", "mean_fact_coverage"),
         "citation_precision": ("citations", "source_citation_precision"),
+        "citation_recall": ("citations", "source_citation_recall"),
         "false_answer_rate": ("abstention", "false_answer_rate"),
+        "false_abstention_rate": ("abstention", "false_abstention_rate"),
         "p95_total_ms": ("latency", "total", "p95_ms"),
     }
     deltas: dict[str, float | None] = {}
     for name, path in paths.items():
-        old: Any = baseline
-        new: Any = current
-        for key in path:
-            old = old.get(key) if isinstance(old, dict) else None
-            new = new.get(key) if isinstance(new, dict) else None
+        old = _metric_value(baseline, path, name)
+        new = _metric_value(current, path, name)
         deltas[name] = None if old is None or new is None else float(new) - float(old)
     return deltas
+
+
+def _metric_value(
+    aggregate: dict[str, Any], path: tuple[str, ...], name: str
+) -> Any:
+    value: Any = aggregate
+    for key in path:
+        value = value.get(key) if isinstance(value, dict) else None
+    if value is not None or name != "false_abstention_rate":
+        return value
+    abstention = aggregate.get("abstention", {})
+    false_abstentions = abstention.get("false_abstentions")
+    correct_answers = abstention.get("correct_answers")
+    if not isinstance(false_abstentions, int) or not isinstance(correct_answers, int):
+        return None
+    return _safe_ratio(false_abstentions, false_abstentions + correct_answers)

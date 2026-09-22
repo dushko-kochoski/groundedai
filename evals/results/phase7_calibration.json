@@ -1,0 +1,885 @@
+{
+  "baseline_run_id": "364d577e-90b3-42e4-9967-19af43ac5d7c",
+  "dataset_name": "golden_v1",
+  "dataset_version": "1.0.0",
+  "embedding_identity": {
+    "provider": "deterministic-feature-hashing",
+    "model": "feature-hashing-v1",
+    "version": "1"
+  },
+  "failure_taxonomy": {
+    "weak_irrelevant_evidence_passed_threshold": [
+      "unknown_001",
+      "unknown_002",
+      "unknown_004",
+      "unknown_006",
+      "unknown_007",
+      "unknown_008",
+      "unknown_010"
+    ],
+    "false_answer": [
+      "unknown_001",
+      "unknown_002",
+      "unknown_004",
+      "unknown_006",
+      "unknown_007",
+      "unknown_008",
+      "unknown_010"
+    ],
+    "false_abstention": [],
+    "expected_fact_missing": [
+      "multi_001"
+    ],
+    "multi_source_evidence_not_fully_used": [
+      "multi_001"
+    ],
+    "wrong_or_extra_source_cited": []
+  },
+  "score_distributions": {
+    "answerable_expected_retrieved": {
+      "case_count": 20,
+      "top1": {
+        "min": 0.20000002384185867,
+        "median": 0.39092212377469376,
+        "mean": 0.38910542200531956,
+        "max": 0.6495190456366258
+      },
+      "top2": {
+        "min": 0.15152287031642053,
+        "median": 0.19364917278289795,
+        "mean": 0.22327927238463724,
+        "max": 0.3195048069806341
+      },
+      "top1_top2_gap": {
+        "min": 0.03474739193916321,
+        "median": 0.16735970021769964,
+        "mean": 0.19010387396980863,
+        "max": 0.36188762968443733
+      }
+    },
+    "answerable_expected_not_retrieved": {
+      "case_count": 0,
+      "top1": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      },
+      "top2": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      },
+      "top1_top2_gap": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      }
+    },
+    "unanswerable_false_answer": {
+      "case_count": 7,
+      "top1": {
+        "min": 0.16222142166559173,
+        "median": 0.25,
+        "mean": 0.23119738734146567,
+        "max": 0.2581988948046833
+      },
+      "top2": {
+        "min": 0.24056261777877808,
+        "median": 0.24056261777877808,
+        "mean": 0.24056261777877808,
+        "max": 0.24056261777877808
+      },
+      "top1_top2_gap": {
+        "min": 0.009437382221221924,
+        "median": 0.009437382221221924,
+        "mean": 0.009437382221221924,
+        "max": 0.009437382221221924
+      }
+    },
+    "unanswerable_correct_abstention": {
+      "case_count": 3,
+      "top1": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      },
+      "top2": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      },
+      "top1_top2_gap": {
+        "min": null,
+        "median": null,
+        "mean": null,
+        "max": null
+      }
+    }
+  },
+  "threshold_sweep": [
+    {
+      "evidence_min_score": 0.15,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.9523809523809523,
+          "facts_matched": 20,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.7407407407407407,
+          "source_citation_recall": 0.9523809523809523,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 20,
+          "correct_abstentions": 3,
+          "false_answers": 7,
+          "false_abstentions": 0,
+          "abstention_accuracy": 0.7666666666666667,
+          "abstention_precision": 1.0,
+          "abstention_recall": 0.3,
+          "false_answer_rate": 0.7,
+          "false_abstention_rate": 0.0,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.03913333333333333,
+            "p50_ms": 0.0385,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.6205333333333334,
+            "p50_ms": 3.068,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": false
+    },
+    {
+      "evidence_min_score": 0.18,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.9523809523809523,
+          "facts_matched": 20,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.7692307692307693,
+          "source_citation_recall": 0.9523809523809523,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 20,
+          "correct_abstentions": 4,
+          "false_answers": 6,
+          "false_abstentions": 0,
+          "abstention_accuracy": 0.8,
+          "abstention_precision": 1.0,
+          "abstention_recall": 0.4,
+          "false_answer_rate": 0.6,
+          "false_abstention_rate": 0.0,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.037866666666666667,
+            "p50_ms": 0.0385,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.6169000000000002,
+            "p50_ms": 3.0645,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.2,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.9523809523809523,
+          "facts_matched": 20,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.7692307692307693,
+          "source_citation_recall": 0.9523809523809523,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 20,
+          "correct_abstentions": 4,
+          "false_answers": 6,
+          "false_abstentions": 0,
+          "abstention_accuracy": 0.8,
+          "abstention_precision": 1.0,
+          "abstention_recall": 0.4,
+          "false_answer_rate": 0.6,
+          "false_abstention_rate": 0.0,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.037866666666666667,
+            "p50_ms": 0.0385,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.6169000000000002,
+            "p50_ms": 3.0645,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.22,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.9047619047619048,
+          "facts_matched": 19,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.7916666666666666,
+          "source_citation_recall": 0.9047619047619048,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 19,
+          "correct_abstentions": 5,
+          "false_answers": 5,
+          "false_abstentions": 1,
+          "abstention_accuracy": 0.8,
+          "abstention_precision": 0.8333333333333334,
+          "abstention_recall": 0.5,
+          "false_answer_rate": 0.5,
+          "false_abstention_rate": 0.05,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.03526666666666667,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.6097333333333332,
+            "p50_ms": 3.0645,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": false
+    },
+    {
+      "evidence_min_score": 0.24,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.9047619047619048,
+          "facts_matched": 19,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.8260869565217391,
+          "source_citation_recall": 0.9047619047619048,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 19,
+          "correct_abstentions": 6,
+          "false_answers": 4,
+          "false_abstentions": 1,
+          "abstention_accuracy": 0.8333333333333334,
+          "abstention_precision": 0.8571428571428571,
+          "abstention_recall": 0.6,
+          "false_answer_rate": 0.4,
+          "false_abstention_rate": 0.05,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.033933333333333336,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.6061666666666667,
+            "p50_ms": 3.0645,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.25,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.8095238095238095,
+          "facts_matched": 17,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.8095238095238095,
+          "source_citation_recall": 0.8095238095238095,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 17,
+          "correct_abstentions": 6,
+          "false_answers": 4,
+          "false_abstentions": 3,
+          "abstention_accuracy": 0.7666666666666667,
+          "abstention_precision": 0.6666666666666666,
+          "abstention_recall": 0.6,
+          "false_answer_rate": 0.4,
+          "false_abstention_rate": 0.15,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.031433333333333334,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.5989999999999998,
+            "p50_ms": 3.0645,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": false
+    },
+    {
+      "evidence_min_score": 0.251,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.8095238095238095,
+          "facts_matched": 17,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 0.9444444444444444,
+          "source_citation_recall": 0.8095238095238095,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 17,
+          "correct_abstentions": 9,
+          "false_answers": 1,
+          "false_abstentions": 3,
+          "abstention_accuracy": 0.8666666666666667,
+          "abstention_precision": 0.75,
+          "abstention_recall": 0.9,
+          "false_answer_rate": 0.1,
+          "false_abstention_rate": 0.15,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.027566666666666666,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.5883,
+            "p50_ms": 3.0564999999999998,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": false
+    },
+    {
+      "evidence_min_score": 0.259,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.8095238095238095,
+          "facts_matched": 17,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 1.0,
+          "source_citation_recall": 0.8095238095238095,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 17,
+          "correct_abstentions": 10,
+          "false_answers": 0,
+          "false_abstentions": 3,
+          "abstention_accuracy": 0.9,
+          "abstention_precision": 0.7692307692307693,
+          "abstention_recall": 1.0,
+          "false_answer_rate": 0.0,
+          "false_abstention_rate": 0.15,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.026233333333333334,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.584766666666667,
+            "p50_ms": 3.0564999999999998,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.26,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.8095238095238095,
+          "facts_matched": 17,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 1.0,
+          "source_citation_recall": 0.8095238095238095,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 17,
+          "correct_abstentions": 10,
+          "false_answers": 0,
+          "false_abstentions": 3,
+          "abstention_accuracy": 0.9,
+          "abstention_precision": 0.7692307692307693,
+          "abstention_recall": 1.0,
+          "false_answer_rate": 0.0,
+          "false_abstention_rate": 0.15,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.026233333333333334,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.584766666666667,
+            "p50_ms": 3.0564999999999998,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.28,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.8095238095238095,
+          "facts_matched": 17,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 1.0,
+          "source_citation_recall": 0.8095238095238095,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 17,
+          "correct_abstentions": 10,
+          "false_answers": 0,
+          "false_abstentions": 3,
+          "abstention_accuracy": 0.9,
+          "abstention_precision": 0.7692307692307693,
+          "abstention_recall": 1.0,
+          "false_answer_rate": 0.0,
+          "false_abstention_rate": 0.15,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.026233333333333334,
+            "p50_ms": 0.038,
+            "p95_ms": 0.06,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.584766666666667,
+            "p50_ms": 3.0564999999999998,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": true
+    },
+    {
+      "evidence_min_score": 0.3,
+      "metrics": {
+        "retrieval": {
+          "k": 5,
+          "hit_at_k": 1.0,
+          "recall_at_k": 1.0,
+          "mrr": 1.0,
+          "zero_result_rate": 0.1,
+          "average_retrieved_count": 1.5333333333333334
+        },
+        "answers": {
+          "mean_fact_coverage": 0.6666666666666666,
+          "facts_matched": 14,
+          "facts_expected": 21
+        },
+        "citations": {
+          "citation_validity_rate": 1.0,
+          "source_citation_precision": 1.0,
+          "source_citation_recall": 0.6666666666666666,
+          "uncited_answer_count": 0,
+          "invalid_citation_count": 0
+        },
+        "abstention": {
+          "correct_answers": 14,
+          "correct_abstentions": 10,
+          "false_answers": 0,
+          "false_abstentions": 6,
+          "abstention_accuracy": 0.8,
+          "abstention_precision": 0.625,
+          "abstention_recall": 1.0,
+          "false_answer_rate": 0.0,
+          "false_abstention_rate": 0.3,
+          "error_count": 0
+        },
+        "latency": {
+          "retrieval": {
+            "mean_ms": 3.5084,
+            "p50_ms": 2.9515000000000002,
+            "p95_ms": 3.726,
+            "max_ms": 16.787
+          },
+          "generation": {
+            "mean_ms": 0.021666666666666667,
+            "p50_ms": 0.0,
+            "p95_ms": 0.059,
+            "max_ms": 0.115
+          },
+          "total": {
+            "mean_ms": 3.5711,
+            "p50_ms": 3.0564999999999998,
+            "p95_ms": 3.87,
+            "max_ms": 17.085
+          }
+        },
+        "tokens": {
+          "total_input_tokens": null,
+          "total_output_tokens": null,
+          "total_tokens": null,
+          "mean_tokens_per_answered_query": null
+        },
+        "cost": {
+          "estimated_cost": null,
+          "currency": null,
+          "pricing_version": null
+        }
+      },
+      "pareto_relevant": false
+    }
+  ]
+}

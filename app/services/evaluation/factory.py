@@ -16,6 +16,7 @@ from app.services.evaluation.datasets import DatasetRegistry
 from app.services.evaluation.fixtures import EvaluationFixturePreparer
 from app.services.evaluation.service import EvaluationService
 from app.services.generation import GroundedAnswerService
+from app.services.generation.evidence import build_evidence_policy
 from app.services.ingestion.chunking import ParagraphChunker
 from app.services.ingestion.parsers import DocumentParserRegistry
 from app.services.ingestion.service import DocumentService
@@ -26,6 +27,13 @@ from app.services.storage import LocalDocumentStorage
 def build_evaluation_service(session: AsyncSession, settings: Settings) -> EvaluationService:
     embeddings = _embeddings(settings)
     generation = _generation(settings)
+    evidence_policy = build_evidence_policy(
+        embedding_provider=embeddings.name,
+        embedding_model=embeddings.model,
+        embedding_version=embeddings.version,
+        deterministic_minimum_score=settings.evidence_deterministic_min_score,
+        openai_minimum_score=settings.evidence_openai_min_score,
+    )
     documents_repository = DocumentRepository(session)
     document_service = DocumentService(
         repository=documents_repository,
@@ -51,6 +59,7 @@ def build_evaluation_service(session: AsyncSession, settings: Settings) -> Evalu
         retrieval=retrieval,
         generation=generation,
         runs=QueryRunRepository(session),
+        evidence_policy=evidence_policy,
     )
     registry = DatasetRegistry(settings.evaluation_root)
     return EvaluationService(
@@ -67,6 +76,8 @@ def build_evaluation_service(session: AsyncSession, settings: Settings) -> Evalu
         repository=EvaluationRepository(session),
         default_top_k=settings.retrieval_top_k,
         default_min_score=settings.retrieval_min_score,
+        evidence_policy_version=evidence_policy.version,
+        default_evidence_min_score=evidence_policy.minimum_score,
     )
 
 

@@ -74,6 +74,7 @@ class EvaluationRunRequest(BaseModel):
     mode: EvaluationMode = EvaluationMode.END_TO_END
     top_k: int | None = Field(default=None, ge=1)
     min_score: float | None = Field(default=None, ge=-1.0, le=1.0)
+    evidence_min_score: float | None = Field(default=None, ge=-1.0, le=1.0)
 
 
 class EvaluationRunResponse(BaseModel):
@@ -90,6 +91,8 @@ class EvaluationRunResponse(BaseModel):
     generation_provider: str | None
     generation_model: str | None
     prompt_version: str | None
+    evidence_policy_version: str
+    evidence_min_score: float | None
     case_count: int
     aggregate_metrics: dict[str, object]
     started_at: datetime

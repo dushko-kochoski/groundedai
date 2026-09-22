@@ -35,6 +35,11 @@ class QueryRun(Base):
     generation_provider: Mapped[str] = mapped_column(String(64), nullable=False)
     generation_model: Mapped[str] = mapped_column(String(127), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_min_score: Mapped[float | None] = mapped_column(Float)
+    top_evidence_score: Mapped[float | None] = mapped_column(Float)
+    evidence_sufficient: Mapped[bool | None] = mapped_column(Boolean)
+    abstention_category: Mapped[str | None] = mapped_column(String(64))
     retrieval_top_k: Mapped[int] = mapped_column(Integer, nullable=False)
     retrieval_min_score: Mapped[float] = mapped_column(Float, nullable=False)
     retrieval_snapshot: Mapped[list[dict[str, Any]]] = mapped_column(

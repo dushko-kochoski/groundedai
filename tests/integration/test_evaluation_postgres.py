@@ -77,6 +77,8 @@ async def test_evaluation_persists_run_cases_and_matching_aggregates(tmp_path: P
             cases = await service.list_cases(run_id)
 
         assert fetched.status.value == "completed"
+        assert fetched.evidence_policy_version == "evidence_policy_v1"
+        assert fetched.evidence_min_score == 0.26
         assert len(cases.items) == 2
         assert response.aggregate_metrics["retrieval"]["hit_at_k"] == 1.0  # type: ignore[index]
         assert response.aggregate_metrics["answers"]["mean_fact_coverage"] == 1.0  # type: ignore[index]
@@ -102,6 +104,8 @@ async def test_evaluation_persists_run_cases_and_matching_aggregates(tmp_path: P
             )
         assert persisted_run is not None
         assert persisted_run.aggregate_metrics == response.aggregate_metrics
+        assert persisted_run.evidence_policy_version == "evidence_policy_v1"
+        assert persisted_run.evidence_min_score == 0.26
         assert len(persisted_cases) == 2
     finally:
         async with engine.begin() as connection:

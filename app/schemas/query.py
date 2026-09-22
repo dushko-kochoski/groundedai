@@ -32,6 +32,11 @@ class GroundedQueryDiagnostics(BaseModel):
     provider: str
     model: str
     prompt_version: str
+    evidence_policy_version: str
+    evidence_min_score: float | None
+    top_evidence_score: float | None
+    evidence_sufficient: bool | None
+    abstention_category: str | None
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None

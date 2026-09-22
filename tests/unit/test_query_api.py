@@ -101,6 +101,11 @@ class FakeGroundedService:
             provider="deterministic",
             model="extractive-v1",
             prompt_version="grounded_answer_v1",
+            evidence_policy_version="evidence_policy_v1",
+            evidence_min_score=0.26,
+            top_evidence_score=0.8 if retrieved_count else None,
+            evidence_sufficient=bool(retrieved_count),
+            abstention_category="no_retrieval_evidence" if not retrieved_count else None,
         )
 
 

@@ -20,6 +20,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--top-k", type=int)
     parser.add_argument("--min-score", type=float)
+    parser.add_argument("--evidence-min-score", type=float)
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
@@ -36,6 +37,7 @@ async def _run(args: argparse.Namespace) -> int:
                 EvaluationMode(args.mode),
                 top_k=args.top_k,
                 min_score=args.min_score,
+                evidence_min_score=args.evidence_min_score,
             )
         if args.as_json:
             print(result.model_dump_json(indent=2))

@@ -112,6 +112,22 @@ async def test_grounded_query_persists_validated_citations_and_pre_generation_ab
     assert fetched.json()["citations"][0]["chunk_id"] == body["citations"][0]["chunk_id"]
     assert fetched.json()["retrieval_snapshot"][0]["source_id"] == "S1"
 
+    weak = await client.post(
+        "/api/v1/query",
+        json={
+            "question": "integration query: policy volcano",
+            "min_score": 0.1,
+        },
+    )
+    assert weak.status_code == 200, weak.text
+    assert weak.json()["abstained"] is True
+    assert weak.json()["diagnostics"]["abstention_category"] == (
+        "insufficient_evidence_strength"
+    )
+    assert weak.json()["diagnostics"]["top_evidence_score"] < 0.26
+    assert weak.json()["diagnostics"]["generation_ms"] == 0.0
+    assert generation.calls == 1
+
     absent = await client.post(
         "/api/v1/query",
         json={
@@ -131,22 +147,30 @@ async def test_grounded_query_persists_validated_citations_and_pre_generation_ab
             await connection.execute(
                 text(
                     "SELECT status::text, abstained, citation_snapshot, retrieval_snapshot, "
-                    "generation_ms FROM query_runs WHERE id IN (:supported, :absent) "
+                    "generation_ms, evidence_policy_version, evidence_sufficient, "
+                    "abstention_category FROM query_runs "
+                    "WHERE id IN (:supported, :weak, :absent) "
                     "ORDER BY abstained"
                 ),
                 {
                     "supported": uuid.UUID(body["run_id"]),
+                    "weak": uuid.UUID(weak.json()["run_id"]),
                     "absent": uuid.UUID(absent.json()["run_id"]),
                 },
             )
         ).all()
     await engine.dispose()
 
-    assert len(rows) == 2
+    assert len(rows) == 3
     assert rows[0][0] == "completed" and rows[0][1] is False
     assert rows[0][2][0]["source_id"] == "S1"
     assert rows[0][3][0]["document_id"] == str(document_id)
-    assert rows[1][0] == "completed" and rows[1][1] is True
-    assert rows[1][2] == [] and rows[1][4] == 0.0
+    assert rows[0][5] == "evidence_policy_v1" and rows[0][6] is True
+    assert all(row[0] == "completed" and row[1] is True for row in rows[1:])
+    assert all(row[2] == [] and row[4] == 0.0 for row in rows[1:])
+    assert {row[7] for row in rows[1:]} == {
+        "insufficient_evidence_strength",
+        "no_retrieval_evidence",
+    }
 
     assert (await client.delete(f"/api/v1/documents/{document_id}")).status_code == 200

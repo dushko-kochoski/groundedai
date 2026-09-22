@@ -5,7 +5,7 @@ is being built in measured phases so that each capability is testable before the
 
 ## Current status
 
-Phases 1 through 6 are implemented:
+Phases 1 through 7 are implemented:
 
 - FastAPI application with `/health` and dependency-aware `/ready` endpoints
 - environment-driven configuration with validation
@@ -25,6 +25,8 @@ Phases 1 through 6 are implemented:
 - versioned golden datasets with retrieval-only and end-to-end evaluation modes
 - persisted run/case metrics for retrieval, facts, citations, abstention, latency, and token usage
 - evaluation API and CLI using the same production services as normal queries
+- versioned, embedding-specific evidence sufficiency before generation
+- persisted evidence decisions and a reproducible threshold-calibration CLI/artifact
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
 
@@ -209,13 +211,20 @@ prove that every answer sentence is semantically entailed by its citation. Phase
 records this as a remaining limitation rather than inventing a deterministic groundedness score.
 
 Zero qualifying retrieval results produce a deterministic abstention without calling generation.
-With evidence present, the provider may also return a validated structured abstention. Completed
+Retrieved results also pass through `evidence_policy_v1`; the calibrated deterministic profile
+requires a top score of at least 0.26. Weak evidence abstains before generation, records a distinct
+category, and keeps generation latency at zero. Evidence policies are tied to embedding
+provider/model/version. OpenAI embeddings have no calibrated default and fail safe unless an
+explicit `EVIDENCE_OPENAI_MIN_SCORE` operator override is configured. With sufficient evidence,
+the provider may also return a validated structured abstention. Completed
 answers and abstentions are persisted in `query_runs`; provider, malformed-output, and citation
 integrity failures are persisted with safe error categories and returned without upstream bodies.
 Snapshots contain source metadata, not embeddings or full document text.
 
 The default `deterministic` generation provider is an offline extractive provider for local
-development and CI. Production generation uses the OpenAI Responses API with strict JSON Schema
+development and CI. Its `extractive-v2` behavior can use one passage per distinct document for
+conjoined questions; it remains a test double, not semantic generation. Production generation uses
+the OpenAI Responses API with strict JSON Schema
 Structured Outputs, disabled provider-side response storage, bounded transient retries, and token
 usage capture when reported:
 
@@ -257,7 +266,9 @@ include `EMBEDDING_PROVIDER`, `EMBEDDING_MODEL`, `EMBEDDING_API_KEY`, the schema
 `RETRIEVAL_MAX_TOP_K`, `RETRIEVAL_MIN_SCORE`, `RETRIEVAL_MAX_QUERY_CHARS`, and
 `RETRIEVAL_MAX_RETURNED_CHARS`. Generation settings include `GENERATION_PROVIDER`,
 `GENERATION_MODEL`, `OPENAI_API_KEY`, `GENERATION_TIMEOUT_SECONDS`,
-`GENERATION_MAX_RETRIES`, and `GENERATION_MAX_OUTPUT_TOKENS`.
+`GENERATION_MAX_RETRIES`, and `GENERATION_MAX_OUTPUT_TOKENS`. Evidence settings include the
+calibrated `EVIDENCE_DETERMINISTIC_MIN_SCORE` and optional, explicitly uncalibrated
+`EVIDENCE_OPENAI_MIN_SCORE` override.
 
 ## Automated evaluation
 
@@ -273,6 +284,7 @@ Run the full grounded path or retrieval in isolation:
 ```bash
 python -m scripts.evaluate --dataset golden_v1 --mode end_to_end
 python -m scripts.evaluate --dataset golden_v1 --mode retrieval_only --json
+python -m scripts.calibrate --run-id BASELINE_RUN_ID --output evals/results/calibration.json
 
 curl -X POST http://localhost:8000/api/v1/evaluations/run \
   -H "Content-Type: application/json" \
@@ -296,6 +308,7 @@ baseline, failure analysis, dataset versioning rules, and current limitations.
 
 ## Next phase
 
-Phase 7 should add vendor-neutral tracing/observability around the already measured ingestion,
-retrieval, generation, and evaluation paths. It should preserve request/query/evaluation correlation
-without making core services depend directly on a tracing vendor.
+Phase 8 should add vendor-neutral tracing/observability around the already measured ingestion,
+retrieval, evidence-policy, generation, and evaluation paths. It should preserve
+request/query/evaluation correlation without making core services depend directly on a tracing
+vendor.

@@ -129,6 +129,23 @@ def test_run_comparison_reports_metric_deltas() -> None:
     assert deltas["p95_total_ms"] == -2.0
 
 
+def test_run_comparison_derives_historical_false_abstention_rate() -> None:
+    baseline = {
+        "abstention": {"correct_answers": 20, "false_abstentions": 0},
+    }
+    current = {
+        "abstention": {
+            "correct_answers": 17,
+            "false_abstentions": 3,
+            "false_abstention_rate": 0.15,
+        },
+    }
+
+    deltas = compare_aggregates(baseline, current)
+
+    assert deltas["false_abstention_rate"] == pytest.approx(0.15)
+
+
 def test_retrieval_only_aggregate_marks_generation_metrics_unavailable() -> None:
     result = aggregate_case_metrics([_case()], top_k=5, include_generation=False)
 

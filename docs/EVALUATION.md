@@ -3,7 +3,7 @@
 ## Purpose and scope
 
 Evaluation turns retrieval and grounded generation into inspectable, reproducible behavior rather
-than a manual demo. Phase 6 measures source retrieval, deterministic required-fact coverage,
+than a manual demo. Phases 6 and 7 measure source retrieval, deterministic required-fact coverage,
 citation provenance, abstention safety, latency, and available token use. It does not use an LLM
 judge and does not claim that every generated sentence is entailed by its citation.
 
@@ -116,7 +116,9 @@ Executed at `2026-09-21T17:56:49Z` with run ID
 
 The baseline is intentionally not a CI quality gate. It establishes behavior for future run-to-run
 comparison; `compare_aggregates()` reports deltas for Hit@K, MRR, fact coverage, citation precision,
-false-answer rate, and p95 total latency without asserting arbitrary thresholds.
+citation recall, false-answer rate, false-abstention rate, and p95 total latency without asserting
+arbitrary thresholds. This run is the frozen Phase 6 reference and has not been rewritten or
+deleted.
 
 ## Failure analysis
 
@@ -131,10 +133,112 @@ This is an important measured limitation of the lexical feature-hashing baseline
 evidence threshold, not a dataset error. Three unanswerable cases correctly returned no evidence
 and abstained.
 
+## Phase 7 calibration
+
+Case-level analysis of the frozen baseline found one dominant safety failure: all seven false
+answers were caused by irrelevant lexical overlap whose top score exceeded the retrieval threshold
+of 0.15. There were no false abstentions. No answerable case had a retrieval miss. The only missing
+fact was `multi_001`, where the first-chunk-only deterministic generator ignored the second
+document. Answerable cases had no wrong or extra expected-source citations; the aggregate citation
+precision loss came from citations attached to the seven false answers.
+
+Top-score distributions from the frozen run were:
+
+| Outcome group | Cases | Top-1 min | median | mean | max |
+|---|---:|---:|---:|---:|---:|
+| Answerable, expected source retrieved | 20 | 0.200000 | 0.390922 | 0.389105 | 0.649519 |
+| Unanswerable false answer | 7 | 0.162221 | 0.250000 | 0.231197 | 0.258199 |
+| Unanswerable correct abstention | 3 | no result | no result | no result | no result |
+
+Among answerable cases with a second result, mean top-2 score was 0.223279 and mean top-1/top-2
+gap was 0.190104. Only one false-answer case had a second result; its gap was 0.009437. A score-gap
+rule was not added because a top-score threshold alone addressed the measured unsafe cases.
+
+`python -m scripts.calibrate` replays evidence decisions from immutable persisted retrieval
+snapshots. It does not invoke generation, mutate the baseline, or persist one noisy evaluation run
+per candidate. The machine-readable artifact is `evals/results/phase7_calibration.json`.
+
+```bash
+python -m scripts.calibrate \
+  --run-id 364d577e-90b3-42e4-9967-19af43ac5d7c \
+  --thresholds 0.15 0.18 0.20 0.22 0.24 0.25 0.251 0.259 0.26 0.28 0.30 \
+  --output evals/results/phase7_calibration.json
+```
+
+The frozen-run sweep showed this safety/coverage tradeoff (fact coverage uses the Phase 6
+first-source generator snapshot):
+
+| Evidence minimum | False answers | False abstentions | False-answer rate | Fact coverage |
+|---:|---:|---:|---:|---:|
+| 0.15 | 7 | 0 | 0.700 | 0.952 |
+| 0.18 | 6 | 0 | 0.600 | 0.952 |
+| 0.22 | 5 | 1 | 0.500 | 0.905 |
+| 0.24 | 4 | 1 | 0.400 | 0.905 |
+| 0.25 | 4 | 3 | 0.400 | 0.810 |
+| 0.251 | 1 | 3 | 0.100 | 0.810 |
+| 0.259 | 0 | 3 | 0.000 | 0.810 |
+| 0.26 | 0 | 3 | 0.000 | 0.810 |
+| 0.28 | 0 | 3 | 0.000 | 0.810 |
+| 0.30 | 0 | 6 | 0.000 | 0.667 |
+
+Pareto reporting uses false answers and false abstentions directly; it does not hide the tradeoff
+inside a weighted score. Threshold 0.26 was selected as a readable boundary just above the maximum
+observed false-answer score of 0.258199. It is not claimed to be universally optimal.
+
+`evidence_policy_v1` is evaluated after retrieval and before generation. It uses the top evidence
+score with an inclusive minimum (`score >= minimum`). No results produce
+`no_retrieval_evidence`; weak results produce `insufficient_evidence_strength`; both avoid the
+generation call, persist zero generation milliseconds, and return no citations. Provider-level
+abstention remains a separate category. Query and evaluation runs persist the policy version,
+threshold, top score, sufficiency decision, and abstention category.
+
+Calibration is keyed to embedding provider/model/version. The 0.26 default applies only to
+`deterministic-feature-hashing` / `feature-hashing-v1` / version `1`. An OpenAI embedding profile
+has no default threshold and fails safe until it receives an explicit configuration; such a value
+is an operator override, not a validated calibration.
+
+The deterministic generator was advanced from `extractive-v1` to `extractive-v2`. For a conjoined
+question it extracts the leading retrieved passage plus the leading passage from each additional
+document, in retrieval order, and cites exactly those used aliases. This small offline behavior
+exercises multi-document context without pretending to be an LLM. It changed `multi_001` from one
+of two facts/sources to two of two. It does not use evaluation case IDs, expected facts, or fixture
+names.
+
+### Measured post-calibration run
+
+Run `b9759228-6499-4b89-86b1-14659f6eade5` completed at
+`2026-09-21T19:12:09Z` with deterministic embeddings, `extractive-v2`, K=5, retrieval minimum
+0.15, `evidence_policy_v1`, and evidence minimum 0.26:
+
+| Metric | Phase 6 baseline | Phase 7 run | Delta |
+|---|---:|---:|---:|
+| Hit@5 | 1.0000 | 1.0000 | 0.0000 |
+| Recall@5 | 1.0000 | 1.0000 | 0.0000 |
+| MRR | 1.0000 | 1.0000 | 0.0000 |
+| Fact coverage | 0.9524 | 0.8571 | -0.0952 |
+| Citation precision | 0.7407 | 1.0000 | +0.2593 |
+| Citation recall | 0.9524 | 0.8571 | -0.0952 |
+| False-answer rate | 0.7000 | 0.0000 | -0.7000 |
+| False-abstention rate | 0.0000 | 0.1500 | +0.1500 |
+| Total latency p95 | 3.870 ms | 3.692 ms | -0.178 ms |
+
+The new confusion matrix is 17 correct answers, 10 correct abstentions, zero false answers, and
+three false abstentions. The remaining false abstentions are `backup_001` (top score 0.200000),
+`backup_002` (0.243432), and `incident_001` (0.248069). Each retrieved the correct source, but its
+lexical score fell below the safety threshold. There are no remaining false answers. This is the
+explicit cost of the selected safety policy; improving it requires better evidence signals or
+semantic embeddings, not changing golden expectations.
+
+A separate holdout dataset was not added. The threshold was selected using all of `golden_v1`, so
+the result is calibration performance rather than a blind generalization estimate.
+
 ## Limitations
 
-The deterministic embedding provider is lexical and the deterministic generator is first-chunk
-extractive. Phrase matching cannot validate paraphrased facts that omit all accepted phrases.
+The deterministic embedding provider is lexical and its threshold is calibrated on this small
+synthetic corpus. The deterministic generator remains a deliberately limited extractive test
+double. Phrase matching cannot validate paraphrased facts that omit all accepted phrases.
 Citation metrics do not prove semantic entailment or detect every unsupported clause. Human review,
 an NLI model, or a carefully governed LLM judge may be evaluated later, but none is implemented in
-Phase 6. Real-provider evaluation was not executed because `OPENAI_API_KEY` is unavailable.
+Phase 7. OpenAI embedding calibration and real-provider evaluation were not executed because
+`OPENAI_API_KEY` is unavailable. The deterministic threshold must not be represented as validated
+for OpenAI embeddings.

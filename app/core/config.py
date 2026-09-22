@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     retrieval_min_score: float = Field(default=0.15, ge=-1.0, le=1.0)
     retrieval_max_query_chars: int = Field(default=2000, ge=1, le=100_000)
     retrieval_max_returned_chars: int = Field(default=6000, ge=1, le=1_000_000)
+    evidence_deterministic_min_score: float = Field(default=0.26, ge=-1.0, le=1.0)
+    evidence_openai_min_score: float | None = Field(default=None, ge=-1.0, le=1.0)
     evaluation_root: Path = Path("evals")
 
     @model_validator(mode="after")

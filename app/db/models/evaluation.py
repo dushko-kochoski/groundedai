@@ -63,6 +63,8 @@ class EvaluationRun(Base):
     generation_provider: Mapped[str | None] = mapped_column(String(64))
     generation_model: Mapped[str | None] = mapped_column(String(127))
     prompt_version: Mapped[str | None] = mapped_column(String(64))
+    evidence_policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    evidence_min_score: Mapped[float | None] = mapped_column(Float)
     case_count: Mapped[int] = mapped_column(Integer, nullable=False)
     aggregate_metrics: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default="{}"

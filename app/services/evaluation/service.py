@@ -42,6 +42,7 @@ class EvaluationServiceProtocol(Protocol):
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        evidence_min_score: float | None = None,
     ) -> EvaluationRunResponse: ...
 
     async def get_run(self, run_id: uuid.UUID) -> EvaluationRunResponse: ...
@@ -62,6 +63,8 @@ class EvaluationService:
         repository: EvaluationRepository,
         default_top_k: int,
         default_min_score: float,
+        evidence_policy_version: str,
+        default_evidence_min_score: float | None,
     ) -> None:
         self.registry = registry
         self.fixtures = fixtures
@@ -72,6 +75,8 @@ class EvaluationService:
         self.repository = repository
         self.default_top_k = default_top_k
         self.default_min_score = default_min_score
+        self.evidence_policy_version = evidence_policy_version
+        self.default_evidence_min_score = default_evidence_min_score
 
     async def run(
         self,
@@ -80,10 +85,16 @@ class EvaluationService:
         *,
         top_k: int | None = None,
         min_score: float | None = None,
+        evidence_min_score: float | None = None,
     ) -> EvaluationRunResponse:
         dataset = self.registry.load(dataset_name)
         effective_top_k = self.default_top_k if top_k is None else top_k
         effective_min_score = self.default_min_score if min_score is None else min_score
+        effective_evidence_min_score = (
+            self.default_evidence_min_score
+            if evidence_min_score is None
+            else evidence_min_score
+        )
         mapping = await self.fixtures.prepare(dataset)
         allowed_document_ids = {uuid.UUID(document_id) for document_id in mapping}
         started = datetime.now(UTC)
@@ -103,6 +114,8 @@ class EvaluationService:
             ),
             generation_model=(self.generation.model if mode == EvaluationMode.END_TO_END else None),
             prompt_version=(PROMPT_VERSION if mode == EvaluationMode.END_TO_END else None),
+            evidence_policy_version=self.evidence_policy_version,
+            evidence_min_score=effective_evidence_min_score,
             case_count=len(dataset.cases),
             aggregate_metrics={},
             started_at=started,
@@ -119,6 +132,7 @@ class EvaluationService:
                     allowed_document_ids,
                     effective_top_k,
                     effective_min_score,
+                    effective_evidence_min_score,
                 )
                 payloads.append(payload)
                 model_payload = {
@@ -158,6 +172,7 @@ class EvaluationService:
         allowed_document_ids: set[uuid.UUID],
         top_k: int,
         min_score: float,
+        evidence_min_score: float | None,
     ) -> dict[str, Any]:
         if mode == EvaluationMode.RETRIEVAL_ONLY:
             retrieval = await self.retrieval.retrieve(
@@ -170,6 +185,7 @@ class EvaluationService:
                 top_k=top_k,
                 min_score=min_score,
                 document_ids=allowed_document_ids,
+                evidence_min_score=evidence_min_score,
             )
             persisted = await self.grounded_answers.get_run(answer.run_id)
             return self._answer_case(case, answer, persisted, document_mapping)
@@ -344,6 +360,8 @@ class EvaluationService:
             generation_provider=run.generation_provider,
             generation_model=run.generation_model,
             prompt_version=run.prompt_version,
+            evidence_policy_version=run.evidence_policy_version,
+            evidence_min_score=run.evidence_min_score,
             case_count=run.case_count,
             aggregate_metrics=run.aggregate_metrics,
             started_at=run.started_at,

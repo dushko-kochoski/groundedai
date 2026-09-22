@@ -6,6 +6,7 @@ import pytest
 from app.core.exceptions import ApplicationError
 from app.db.models import QueryRun
 from app.providers.generation import (
+    DeterministicGenerationProvider,
     GenerationProviderError,
     GenerationResult,
     GroundedModelOutput,
@@ -16,6 +17,7 @@ from app.schemas.retrieval import (
     RetrievalResult,
     RetrievalSearchResponse,
 )
+from app.services.generation.evidence import EvidenceSufficiencyPolicy
 from app.services.generation.service import GroundedAnswerService
 
 
@@ -118,7 +120,11 @@ def output(
 
 
 def service(
-    results: list[RetrievalResult], generation: FixedGeneration
+    results: list[RetrievalResult],
+    generation: FixedGeneration,
+    *,
+    evidence_min_score: float = 0.0,
+    calibrated: bool = True,
 ) -> tuple[GroundedAnswerService, FakeRuns]:
     runs = FakeRuns()
     return (
@@ -126,6 +132,14 @@ def service(
             retrieval=FakeRetrieval(retrieval_response(results)),
             generation=generation,
             runs=runs,
+            evidence_policy=EvidenceSufficiencyPolicy(
+                version="evidence_policy_v1",
+                embedding_provider="deterministic-feature-hashing",
+                embedding_model="feature-hashing-v1",
+                embedding_version="1",
+                minimum_score=evidence_min_score if calibrated else None,
+                calibrated=calibrated,
+            ),
         ),
         runs,
     )
@@ -156,6 +170,23 @@ async def test_supported_answer_resolves_trusted_citations_in_first_use_order() 
     assert response.diagnostics.prompt_version == PROMPT_VERSION
 
 
+async def test_deterministic_provider_uses_distinct_documents_for_conjoined_question() -> None:
+    first = retrieval_result(1, "Remote work is allowed two days weekly.")
+    duplicate_document = retrieval_result(2, "More remote work detail.").model_copy(
+        update={"document_id": first.document_id}
+    )
+    second_document = retrieval_result(3, "Receipts are required for expenses.")
+    prompt = build_grounded_prompt(
+        "What is the remote policy and what is required for expenses?",
+        [first, duplicate_document, second_document],
+    )
+
+    result = await DeterministicGenerationProvider().generate_grounded_answer(prompt)
+
+    assert result.output.citations == ["S1", "S3"]
+    assert "Receipts are required" in (result.output.answer or "")
+
+
 async def test_zero_evidence_abstains_without_generation_call() -> None:
     generation = FixedGeneration(GenerationResult(output=output()))
     grounded, _ = service([], generation)
@@ -167,6 +198,35 @@ async def test_zero_evidence_abstains_without_generation_call() -> None:
     assert response.citations == []
     assert generation.calls == 0
     assert response.diagnostics.generation_ms == 0.0
+    assert response.diagnostics.abstention_category == "no_retrieval_evidence"
+
+
+async def test_weak_evidence_abstains_without_generation_and_persists_decision() -> None:
+    generation = FixedGeneration(GenerationResult(output=output()))
+    weak = retrieval_result().model_copy(update={"score": 0.25})
+    grounded, runs = service([weak], generation, evidence_min_score=0.26)
+
+    response = await grounded.query("question")
+    run = next(iter(runs.items.values()))
+
+    assert response.abstained is True
+    assert response.diagnostics.generation_ms == 0.0
+    assert response.diagnostics.abstention_category == "insufficient_evidence_strength"
+    assert response.diagnostics.top_evidence_score == 0.25
+    assert response.diagnostics.evidence_min_score == 0.26
+    assert run.evidence_sufficient is False
+    assert generation.calls == 0
+
+
+async def test_uncalibrated_profile_fails_safe_without_generation() -> None:
+    generation = FixedGeneration(GenerationResult(output=output()))
+    grounded, _ = service([retrieval_result()], generation, calibrated=False)
+
+    response = await grounded.query("question")
+
+    assert response.abstained is True
+    assert response.diagnostics.abstention_category == "uncalibrated_embedding_profile"
+    assert generation.calls == 0
 
 
 async def test_provider_level_abstention_is_preserved() -> None:
@@ -186,6 +246,7 @@ async def test_provider_level_abstention_is_preserved() -> None:
 
     assert response.abstained is True
     assert response.abstention_reason == "The evidence does not answer the question."
+    assert response.diagnostics.abstention_category == "provider_abstention"
 
 
 @pytest.mark.parametrize(

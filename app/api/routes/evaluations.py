@@ -29,6 +29,7 @@ async def run_evaluation(
         request.mode,
         top_k=request.top_k,
         min_score=request.min_score,
+        evidence_min_score=request.evidence_min_score,
     )
 
 

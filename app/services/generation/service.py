@@ -20,9 +20,14 @@ from app.schemas.query import (
     ValidatedCitation,
 )
 from app.schemas.retrieval import RetrievalResult, RetrievalSearchResponse
+from app.services.generation.evidence import (
+    AbstentionCategory,
+    EvidenceDecision,
+    EvidenceSufficiencyPolicy,
+)
 from app.services.retrieval import RetrievalServiceProtocol
 
-PRE_RETRIEVAL_ABSTENTION = "No sufficiently relevant evidence was found."
+PRE_GENERATION_ABSTENTION = "No sufficiently relevant evidence was found."
 
 
 class QueryRunRepositoryProtocol(Protocol):
@@ -41,6 +46,7 @@ class GroundedAnswerServiceProtocol(Protocol):
         top_k: int | None = None,
         min_score: float | None = None,
         document_ids: set[uuid.UUID] | None = None,
+        evidence_min_score: float | None = None,
     ) -> GroundedQueryResponse: ...
 
     async def get_run(self, run_id: uuid.UUID) -> QueryRunResponse: ...
@@ -57,10 +63,12 @@ class GroundedAnswerService:
         retrieval: RetrievalServiceProtocol,
         generation: GenerationProvider,
         runs: QueryRunRepositoryProtocol,
+        evidence_policy: EvidenceSufficiencyPolicy,
     ) -> None:
         self.retrieval = retrieval
         self.generation = generation
         self.runs = runs
+        self.evidence_policy = evidence_policy
 
     async def query(
         self,
@@ -69,6 +77,7 @@ class GroundedAnswerService:
         top_k: int | None = None,
         min_score: float | None = None,
         document_ids: set[uuid.UUID] | None = None,
+        evidence_min_score: float | None = None,
     ) -> GroundedQueryResponse:
         started = time.perf_counter()
         retrieval = await self.retrieval.retrieve(
@@ -79,19 +88,24 @@ class GroundedAnswerService:
         )
         prompt = build_grounded_prompt(retrieval.query, retrieval.results)
         retrieval_snapshot = self._retrieval_snapshot(prompt, retrieval.results)
+        evidence = self.evidence_policy.evaluate(
+            retrieval.results, minimum_score_override=evidence_min_score
+        )
 
-        if not retrieval.results:
+        if not evidence.sufficient:
             return await self._persist_completed(
                 retrieval=retrieval,
                 prompt=prompt,
                 answer=None,
                 abstained=True,
-                abstention_reason=PRE_RETRIEVAL_ABSTENTION,
+                abstention_reason=PRE_GENERATION_ABSTENTION,
+                abstention_category=evidence.category,
                 citations=[],
                 retrieval_snapshot=retrieval_snapshot,
                 generation_ms=0.0,
                 total_ms=self._elapsed_ms(started),
                 generation_result=None,
+                evidence=evidence,
             )
 
         generation_started = time.perf_counter()
@@ -112,6 +126,7 @@ class GroundedAnswerService:
                 self._elapsed_ms(started),
                 exc.category,
                 str(exc),
+                evidence,
             )
             status_code = 504 if exc.category == "provider_timeout" else 502
             raise ApplicationError(
@@ -140,6 +155,7 @@ class GroundedAnswerService:
                 self._elapsed_ms(started),
                 category,
                 message,
+                evidence,
             )
             raise ApplicationError(
                 status_code=502,
@@ -154,11 +170,15 @@ class GroundedAnswerService:
             answer=output.answer,
             abstained=output.abstained,
             abstention_reason=output.abstention_reason,
+            abstention_category=(
+                AbstentionCategory.PROVIDER_ABSTENTION if output.abstained else None
+            ),
             citations=citations,
             retrieval_snapshot=retrieval_snapshot,
             generation_ms=generation_ms,
             total_ms=self._elapsed_ms(started),
             generation_result=generation_result,
+            evidence=evidence,
         )
 
     async def get_run(self, run_id: uuid.UUID) -> QueryRunResponse:
@@ -228,11 +248,13 @@ class GroundedAnswerService:
         answer: str | None,
         abstained: bool,
         abstention_reason: str | None,
+        abstention_category: AbstentionCategory | None,
         citations: list[ValidatedCitation],
         retrieval_snapshot: list[dict[str, object]],
         generation_ms: float,
         total_ms: float,
         generation_result: GenerationResult | None,
+        evidence: EvidenceDecision,
     ) -> GroundedQueryResponse:
         usage = generation_result.usage if generation_result is not None else None
         run = QueryRun(
@@ -244,6 +266,11 @@ class GroundedAnswerService:
             generation_provider=self.generation.name,
             generation_model=self.generation.model,
             prompt_version=prompt.version,
+            evidence_policy_version=self.evidence_policy.version,
+            evidence_min_score=evidence.minimum_score,
+            top_evidence_score=evidence.top_score,
+            evidence_sufficient=evidence.sufficient,
+            abstention_category=(abstention_category.value if abstention_category else None),
             retrieval_top_k=retrieval.diagnostics.requested_top_k,
             retrieval_min_score=retrieval.diagnostics.min_score,
             retrieval_snapshot=retrieval_snapshot,
@@ -267,6 +294,7 @@ class GroundedAnswerService:
         total_ms: float,
         error_code: str,
         error_message: str,
+        evidence: EvidenceDecision,
     ) -> QueryRun:
         run = QueryRun(
             status=QueryRunStatus.FAILED,
@@ -277,6 +305,11 @@ class GroundedAnswerService:
             generation_provider=self.generation.name,
             generation_model=self.generation.model,
             prompt_version=prompt.version,
+            evidence_policy_version=self.evidence_policy.version,
+            evidence_min_score=evidence.minimum_score,
+            top_evidence_score=evidence.top_score,
+            evidence_sufficient=evidence.sufficient,
+            abstention_category=None,
             retrieval_top_k=retrieval.diagnostics.requested_top_k,
             retrieval_min_score=retrieval.diagnostics.min_score,
             retrieval_snapshot=retrieval_snapshot,
@@ -331,6 +364,11 @@ class GroundedAnswerService:
             provider=run.generation_provider,
             model=run.generation_model,
             prompt_version=run.prompt_version,
+            evidence_policy_version=run.evidence_policy_version,
+            evidence_min_score=run.evidence_min_score,
+            top_evidence_score=run.top_evidence_score,
+            evidence_sufficient=run.evidence_sufficient,
+            abstention_category=run.abstention_category,
             input_tokens=run.input_tokens,
             output_tokens=run.output_tokens,
             total_tokens=run.total_tokens,

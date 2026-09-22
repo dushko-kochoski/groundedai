@@ -92,6 +92,7 @@ class FakeGrounded:
         top_k: int | None = None,
         min_score: float | None = None,
         document_ids: set[uuid.UUID] | None = None,
+        evidence_min_score: float | None = None,
     ) -> GroundedQueryResponse:
         self.calls += 1
         return self.response.model_copy(update={"question": question})
@@ -194,6 +195,11 @@ def _grounded(document_id: uuid.UUID, *, abstained: bool = False) -> FakeGrounde
         provider="deterministic",
         model="extractive-v1",
         prompt_version="grounded_answer_v1",
+        evidence_policy_version="evidence_policy_v1",
+        evidence_min_score=0.26,
+        top_evidence_score=None if abstained else 0.8,
+        evidence_sufficient=not abstained,
+        abstention_category="no_retrieval_evidence" if abstained else None,
     )
     citations = (
         []
@@ -255,6 +261,8 @@ def _service(
             repository=repository,  # type: ignore[arg-type]
             default_top_k=5,
             default_min_score=0.15,
+            evidence_policy_version="evidence_policy_v1",
+            default_evidence_min_score=0.26,
         ),
         repository,
     )
