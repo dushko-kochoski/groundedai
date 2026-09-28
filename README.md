@@ -285,6 +285,11 @@ pytest -m integration
 
 On macOS/Linux use `export` instead of `set`.
 
+Latest local verification (September 28, 2026): `pytest` completed with 134 passed and 5 skipped,
+`ruff check .` passed, and `mypy .` passed for 100 source files. The five skipped tests are the live
+PostgreSQL/pgvector integration tests; Docker Desktop was unavailable and `TEST_DATABASE_URL` was
+not configured for that run. No integration-test result is claimed from this verification.
+
 ## Configuration
 
 Copy `.env.example` to `.env`. Development defaults contain local-only credentials; production
