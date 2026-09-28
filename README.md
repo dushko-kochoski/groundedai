@@ -3,7 +3,22 @@
 GroundedAI is a reliability-first knowledge assistant and RAG evaluation platform. The project
 is being built in measured phases so that each capability is testable before the next is added.
 
-## Current status
+This is a personal portfolio project created to demonstrate production-minded applied AI
+engineering: evidence-bounded answers, verifiable citation provenance, measurable retrieval and
+abstention behavior, deterministic tests, and explicit failure analysis. It is not presented as a
+hosted commercial product, and the documented results are local measurements over synthetic
+repository-owned fixtures.
+
+## Stack
+
+- Python 3.12, FastAPI, Pydantic v2, and Uvicorn
+- SQLAlchemy 2.x async sessions, Alembic, PostgreSQL 17, and pgvector
+- Deterministic offline embedding/generation providers for development and tests
+- Optional OpenAI embeddings and Responses API generation behind provider interfaces
+- pytest, Ruff, and mypy for automated quality checks
+- Docker and Docker Compose for the local API/database stack
+
+## Verified capabilities
 
 Phases 1 through 7 are implemented:
 
@@ -32,6 +47,21 @@ Phases 1 through 7 are implemented:
 
 OCR, claim-level entailment evaluation, Langfuse, MCP, and exports are **not implemented yet**.
 PDF support is limited to documents with extractable text; scanned/image-only PDFs are rejected.
+
+## Current limitations
+
+- The default feature-hashing embeddings and extractive generator are deterministic development
+  providers, not production semantic AI models.
+- Retrieval is an exact cosine scan; there is no approximate-nearest-neighbor index, hybrid search,
+  reranker, or query rewriting.
+- Citation validation proves that citations came from retrieved evidence, but it does not prove
+  claim-level semantic entailment.
+- The calibrated deterministic evidence threshold did not generalize well to the frozen holdout
+  dataset. The measured failures are documented in `docs/EVALUATION.md`.
+- OpenAI-backed behavior requires user-supplied credentials and an operator-configured evidence
+  threshold; it is not exercised by the normal automated test suite.
+- Ingestion is synchronous. OCR, authentication/authorization, a browser UI, distributed jobs,
+  hosted deployment configuration, tracing, exports, and MCP integrations are not implemented.
 
 ## Architecture
 

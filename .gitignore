@@ -1,11 +1,55 @@
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+secrets/
+
+# Python virtual environments and packaging output
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+build/
+dist/
+
+# Python, test, lint, and type-check caches
 __pycache__/
 *.py[cod]
-*.egg-info/
-.env
 .mypy_cache/
 .pytest_cache/
 .ruff_cache/
-.venv/
+.hypothesis/
+.tox/
+.nox/
 htmlcov/
 .coverage
+.coverage.*
+coverage.xml
+
+# Local databases and database sidecars
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+
+# Uploaded documents and generated private runtime data
 data/
+uploads/
+generated/
+evals/results/local/
+evals/results/*.local.json
+
+# Editor and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
