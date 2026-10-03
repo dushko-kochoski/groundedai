@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Ask questions of your documents and inspect the evidence behind each answer."
+    />
+    <title>GroundedAI · Knowledge workspace</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script src="/assets/workspace.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to workspace</a>
+    <header>
+      <a class="brand" href="/" aria-label="GroundedAI home"
+        ><span class="brand-mark">g.</span>Grounded<span>AI</span></a
+      ><span class="header-label">THE KNOWLEDGE WORKSPACE</span
+      ><span id="connection" class="badge">Connecting…</span>
+    </header>
+    <main id="workspace">
+      <section class="intro">
+        <div>
+          <p class="eyebrow">YOUR DOCUMENTS. TRACEABLE ANSWERS.</p>
+          <h1>A little less guesswork.<br />A lot more evidence.</h1>
+          <p class="lede">
+            Ask your knowledge base a question. See where the answer came from.
+          </p>
+        </div>
+        <div class="principle">
+          <span class="small-label">BUILT TO SAY “I DON’T KNOW”</span>
+          <p>When the evidence is too weak, GroundedAI abstains.</p>
+          <span class="muted"
+            >Source provenance is checked. Claim-level accuracy still needs
+            review.</span
+          >
+        </div>
+      </section>
+      <details id="access-panel" class="access">
+        <summary>Workspace access</summary>
+        <form id="access-form">
+          <label for="access-key"
+            >Access key
+            <span class="muted"
+              >— kept in memory until you reload or disconnect</span
+            ></label
+          >
+          <div class="inline">
+            <input
+              id="access-key"
+              type="password"
+              autocomplete="off"
+              placeholder="Optional for local development"
+            /><button type="submit">Connect</button
+            ><button type="button" id="disconnect" class="secondary">
+              Disconnect
+            </button>
+          </div>
+        </form>
+      </details>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <div class="workspace-grid">
+        <aside class="panel library">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">01 / KNOWLEDGE</p>
+              <h2>Your documents</h2>
+            </div>
+            <span id="document-count" class="count">—</span>
+          </div>
+          <p class="muted">Add the sources you want answers to draw from.</p>
+          <form id="upload-form">
+            <label class="upload-area" for="document-file"
+              ><span class="upload-symbol">↑</span
+              ><strong>Choose a document</strong
+              ><span id="upload-hint"
+                >TXT, Markdown, text-PDF or DOCX</span
+              ></label
+            ><input
+              id="document-file"
+              type="file"
+              accept=".txt,.md,.markdown,.pdf,.docx"
+              required
+            /><button id="upload-button" type="submit" disabled>
+              Upload document
+            </button>
+          </form>
+          <div class="list-heading">
+            <span class="small-label">SOURCE LIBRARY</span
+            ><button id="refresh" class="text-button" disabled>Refresh</button>
+          </div>
+          <p id="library-state" class="muted">
+            Connect to load your documents.
+          </p>
+          <ul id="documents" class="documents"></ul>
+          <div class="pagination">
+            <button id="previous" class="text-button" disabled>
+              ← Previous</button
+            ><span id="page-label" class="muted"></span
+            ><button id="next" class="text-button" disabled>Next →</button>
+          </div>
+        </aside>
+        <section class="panel conversation">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">02 / DISCOVERY</p>
+              <h2>Ask with confidence.</h2>
+            </div>
+            <span class="badge neutral">Evidence first</span>
+          </div>
+          <form id="query-form">
+            <label for="question">What would you like to know?</label
+            ><textarea
+              id="question"
+              rows="3"
+              required
+              placeholder="What does our refund policy say about returns?"
+              maxlength="2000"
+            ></textarea>
+            <div class="query-footer">
+              <span class="muted">Answers use your uploaded sources.</span
+              ><button id="ask-button" type="submit" disabled>
+                Find an answer <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </form>
+          <div id="answer-region" aria-live="polite" aria-busy="false">
+            <div id="empty-answer" class="empty-answer">
+              <span class="evidence-icon">≋</span>
+              <h3>Start with a good question.</h3>
+              <p>
+                Your answer, source citations and evidence diagnostics will
+                appear here.
+              </p>
+            </div>
+            <section id="answer-result" hidden>
+              <div class="result-heading">
+                <span class="small-label">ANSWER</span
+                ><span id="answer-status" class="badge"></span>
+              </div>
+              <p id="answer-text"></p>
+              <div id="citations-section">
+                <h3>Source citations</h3>
+                <ul id="citations" class="citations"></ul>
+              </div>
+              <details class="diagnostics">
+                <summary>How this answer was produced</summary>
+                <dl id="diagnostics"></dl>
+              </details>
+            </section>
+          </div>
+        </section>
+      </div>
+      <footer>
+        <span
+          >GroundedAI
+          <span class="muted"
+            >/ Reliability-first knowledge assistant</span
+          ></span
+        ><span id="provider-label"
+          >Provider configuration loads on connection.</span
+        >
+      </footer>
+    </main>
+  </body>
+</html>

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
 
     app_env: Literal["development", "test", "production"] = "development"
+    api_access_key: SecretStr | None = None
     log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://groundedai:groundedai@localhost:5432/groundedai"
     database_echo: bool = False
@@ -46,15 +47,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_chunk_configuration(self) -> "Settings":
+        access_key = self.api_access_key.get_secret_value() if self.api_access_key else ""
+        if access_key and (
+            len(access_key) < 32
+            or not access_key.isascii()
+            or any(character.isspace() for character in access_key)
+        ):
+            raise ValueError(
+                "API_ACCESS_KEY must be at least 32 ASCII characters without whitespace"
+            )
+        if self.app_env == "production" and not access_key:
+            raise ValueError("API_ACCESS_KEY is required in production")
         if self.chunk_overlap_chars >= self.chunk_target_chars:
             raise ValueError("CHUNK_OVERLAP_CHARS must be smaller than CHUNK_TARGET_CHARS")
         if self.embedding_dimension != 1536:
             raise ValueError("EMBEDDING_DIMENSION must be 1536 to match the database schema")
         if self.embedding_provider == "openai":
             if self.embedding_model != "text-embedding-3-small":
-                raise ValueError(
-                    "EMBEDDING_MODEL must be text-embedding-3-small when using OpenAI"
-                )
+                raise ValueError("EMBEDDING_MODEL must be text-embedding-3-small when using OpenAI")
             if self.embedding_api_key is None or not self.embedding_api_key.get_secret_value():
                 raise ValueError("EMBEDDING_API_KEY is required when EMBEDDING_PROVIDER=openai")
         if self.generation_provider == "openai":
