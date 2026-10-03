@@ -19,6 +19,7 @@ services:
     build: .
     environment:
       APP_ENV: development
+      API_ACCESS_KEY: ${API_ACCESS_KEY:-}
       LOG_LEVEL: INFO
       DATABASE_URL: postgresql+asyncpg://groundedai:groundedai@db:5432/groundedai
       UPLOAD_DIR: /app/data/uploads

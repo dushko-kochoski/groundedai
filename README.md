@@ -44,6 +44,9 @@ Phases 1 through 7 are implemented:
 - persisted evidence decisions and a reproducible threshold-calibration CLI/artifact
 - unit, API, and live PostgreSQL/pgvector integration tests
 - Docker image running as a non-root user
+- same-origin browser workspace for document upload/list/delete and cited questions
+- optional local / mandatory production bearer-key access for every `/api/` endpoint
+- GitHub Actions quality gates with migrated PostgreSQL/pgvector integration tests
 
 OCR, claim-level entailment evaluation, Langfuse, MCP, and exports are **not implemented yet**.
 PDF support is limited to documents with extractable text; scanned/image-only PDFs are rejected.
@@ -60,8 +63,11 @@ PDF support is limited to documents with extractable text; scanned/image-only PD
   dataset. The measured failures are documented in `docs/EVALUATION.md`.
 - OpenAI-backed behavior requires user-supplied credentials and an operator-configured evidence
   threshold; it is not exercised by the normal automated test suite.
-- Ingestion is synchronous. OCR, authentication/authorization, a browser UI, distributed jobs,
-  hosted deployment configuration, tracing, exports, and MCP integrations are not implemented.
+- Ingestion is synchronous. Multi-user authentication/authorization, per-user data isolation,
+  distributed jobs, tracing, exports, and MCP integrations are not implemented. The workspace key
+  is a single-operator access gate; everyone with it can access and delete all workspace data.
+- Hosting still requires PostgreSQL/pgvector and durable uploaded-file storage. See
+  [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) before exposing the application.
 
 ## Architecture
 
@@ -103,6 +109,24 @@ before `/ready` reports ready:
 docker compose run --rm api alembic upgrade head
 docker compose up --build
 ```
+
+## Browser workspace
+
+After starting the API, open <http://localhost:8000/>. Upload a document, ask a question,
+and inspect the answer's citations and diagnostics. The UI calls the existing services;
+it does not substitute canned answers or bypass evidence thresholds. Evaluation-owned
+fixtures are labelled in the document list and remain excluded from normal retrieval.
+No Node.js build or extra production dependency is required.
+
+For a protected workspace, set `API_ACCESS_KEY` to a random ASCII key of at least 32
+characters without whitespace. Enter it in **Workspace access**. The browser retains it
+only in page memory and clears it on reload/disconnect. Never enter an OpenAI provider
+key here. API clients send `Authorization: Bearer <workspace-key>` on all `/api/` requests.
+Production (`APP_ENV=production`) refuses to start without a workspace key, and disables
+Swagger, ReDoc and the OpenAPI schema endpoints. Health checks remain public.
+
+The default providers are deterministic development tools, as labelled in the UI.
+Citations establish source provenance, not proof that every answer claim is correct.
 
 ## Document API
 
@@ -285,10 +309,25 @@ pytest -m integration
 
 On macOS/Linux use `export` instead of `set`.
 
-Latest local verification (September 28, 2026): `pytest` completed with 134 passed and 5 skipped,
+Earlier local verification (September 28, 2026): `pytest` completed with 134 passed and 5 skipped,
 `ruff check .` passed, and `mypy .` passed for 100 source files. The five skipped tests are the live
 PostgreSQL/pgvector integration tests; Docker Desktop was unavailable and `TEST_DATABASE_URL` was
 not configured for that run. No integration-test result is claimed from this verification.
+
+Earlier workspace-package verification (October 3, 2026): `pytest` completed with 154 passed
+and 5 skipped; `ruff check .` passed; `mypy .` passed across 103 source files. The skipped tests
+required live PostgreSQL/pgvector. SQLAlchemy is constrained to the tested 2.0 series because
+installing 2.1 introduced incompatible row/select type inference in existing repositories.
+
+Post-application local verification (October 3, 2026): Alembic migrated a Docker-hosted
+PostgreSQL 17 database with pgvector, and the five live integration tests passed (`5 passed,
+154 deselected`). The default suite still reported `154 passed, 5 skipped`; `ruff check .`,
+`mypy .` across 103 source files, and `node --check app/web/workspace.js` also passed. A headed
+Chromium run against the real database verified document upload/listing, a deterministic
+insufficient-evidence abstention, a cited answer with diagnostics, and document deletion. The
+test upload was deleted afterward, and the browser console reported no errors. The GitHub Actions
+workflow provisions PostgreSQL/pgvector and applies migrations; its result must be checked on the
+pull request separately.
 
 ## Configuration
 

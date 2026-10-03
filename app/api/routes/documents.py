@@ -32,7 +32,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 )
 async def upload_document(
     service: Annotated[DocumentServiceProtocol, Depends(get_document_service)],
-    file: Annotated[UploadFile, File(description="UTF-8 TXT or Markdown document")],
+    file: Annotated[UploadFile, File(description="TXT, Markdown, text-PDF, or DOCX document")],
 ) -> DocumentResponse:
     try:
         return await service.ingest(file)
